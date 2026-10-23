@@ -20,7 +20,7 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultimate Dark Theme CSS Overriding All Streamlit Elements & Main Content Background
+# Ultimate Dark Theme CSS Overriding All Streamlit Elements & Logo Areas
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
@@ -161,10 +161,10 @@ try:
         background-color: rgba(20, 35, 50, 0.9) !important;
     }}
 
-    /* Standard Button Customization */
+    /* Standard Button Customization & Text Visibility */
     .stButton>button {{
         background: linear-gradient(135deg, #007bff, #0056b3) !important;
-        color: white !important;
+        color: #ffffff !important;
         border-radius: 8px !important;
         font-weight: 700 !important;
         width: 100% !important;
@@ -172,6 +172,10 @@ try:
         box-shadow: 0 4px 12px rgba(0,123,255,0.4) !important;
         border: none !important;
         transition: all 0.3s ease;
+    }}
+    .stButton>button p, .stButton>button div {{
+        color: #ffffff !important;
+        font-weight: 700 !important;
     }}
     .stButton>button:hover {{
         background: linear-gradient(135deg, #0056b3, #003d82) !important;
@@ -303,7 +307,7 @@ def show_landing_page():
     
     col1, col2, col3 = st.columns([2, 6, 2])
     with col1:
-        st.markdown("### 🎓 **DSC**")
+        st.markdown("<h3 style='color: #ffffff;'>🎓 <b>DSC</b></h3>", unsafe_allow_html=True)
     with col2:
         st.markdown("<p style='text-align: center; color: #ffffff; font-size: 14px; font-weight: 600;'>SECURE ASSESSMENT & CERTIFICATION SYSTEM</p>", unsafe_allow_html=True)
     with col3:
@@ -397,7 +401,7 @@ def show_landing_page():
     else:
         st.markdown(f"""
             <div class="hero-box">
-                <h1>DSC Student Portal</h1>
+                <h1 style="color: #ffffff;">DSC Student Portal</h1>
                 <p style="font-size: 15px; margin-top: 10px; color: #d0d7de;">Secure Authentication via Roll Number & Encrypted Database</p>
             </div>
         """, unsafe_allow_html=True)
@@ -1142,12 +1146,12 @@ def show_staff_dashboard():
                         col_ph_a.write("❌ Not Uploaded")
                     if col_ph_b.button(f"Approve Photo", key=f"app_ph_{r_no}"):
                         conn = sqlite3.connect('dsc_portal.db')
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE students SET status_photo = 'Approved' WHERE roll_no = ?", (r_no,))
-                        conn.commit()
-                        conn.close()
-                        st.success("Photo Approved!")
-                        st.rerun()
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE students SET status_photo = 'Approved' WHERE roll_no = ?", (r_no,))
+                    conn.commit()
+                    conn.close()
+                    st.success("Photo Approved!")
+                    st.rerun()
                     if col_ph_c.button(f"Reject Photo", key=f"rej_ph_{r_no}"):
                         conn = sqlite3.connect('dsc_portal.db')
                         cursor = conn.cursor()

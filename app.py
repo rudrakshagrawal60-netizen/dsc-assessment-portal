@@ -20,13 +20,13 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements & Expanders
+# Ultimate Dark Theme CSS Overriding All Streamlit Elements & Main Content Background
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
         bg_css = f'''
         .stApp {{
-            background-image: linear-gradient(rgba(10, 18, 26, 0.96), rgba(15, 28, 40, 0.98)), url("data:image/jpg;base64,{bin_str}");
+            background-image: linear-gradient(rgba(10, 18, 26, 0.98), rgba(15, 28, 40, 0.99)), url("data:image/jpg;base64,{bin_str}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -46,8 +46,14 @@ try:
     <style>
     {bg_css}
     
+    /* Force entire main block and views to dark theme */
+    .main, .block-container, [data-testid="stVerticalBlock"] {{
+        background-color: transparent !important;
+        color: #ffffff !important;
+    }}
+
     /* Global text clarity */
-    h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label {{
+    h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label, .streamlit-expanderHeader {{
         color: #ffffff !important;
     }}
 

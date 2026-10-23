@@ -250,7 +250,8 @@ def init_db():
             academic_fee REAL DEFAULT 0.0,
             hostel_fee REAL DEFAULT 0.0,
             mess_fee REAL DEFAULT 0.0,
-            bus_fee REAL DEFAULT 0.0
+            bus_fee REAL DEFAULT 0.0,
+            attendance REAL DEFAULT 100.0
         )
     ''')
     
@@ -266,7 +267,8 @@ def init_db():
         ("academic_fee", "REAL DEFAULT 0.0"),
         ("hostel_fee", "REAL DEFAULT 0.0"),
         ("mess_fee", "REAL DEFAULT 0.0"),
-        ("bus_fee", "REAL DEFAULT 0.0")
+        ("bus_fee", "REAL DEFAULT 0.0"),
+        ("attendance", "REAL DEFAULT 100.0")
     ]
     for c_name, c_type in cols:
         try:
@@ -279,7 +281,30 @@ def init_db():
             admin_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             password TEXT NOT NULL,
-            photo BLOB
+            photo BLOB,
+            assigned_class TEXT DEFAULT 'B.Tech CSE',
+            assigned_section TEXT DEFAULT 'Section AJ',
+            is_class_advisor INTEGER DEFAULT 1
+        )
+    ''')
+    
+    adm_cols = [
+        ("assigned_class", "TEXT DEFAULT 'B.Tech CSE'"),
+        ("assigned_section", "TEXT DEFAULT 'Section AJ'"),
+        ("is_class_advisor", "INTEGER DEFAULT 1")
+    ]
+    for c_name, c_type in adm_cols:
+        try:
+            cursor.execute(f"ALTER TABLE admins ADD COLUMN {c_name} {c_type}")
+        except sqlite3.OperationalError:
+            pass
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS quizzes (
+            quiz_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            section TEXT,
+            creator_id TEXT
         )
     ''')
     
@@ -288,6 +313,7 @@ def init_db():
 
 init_db()
 
+# Session State & 15-Minute Auto-Logout Check
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_role" not in st.session_state:
@@ -296,6 +322,23 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 if "identifier" not in st.session_state:
     st.session_state.identifier = ""
+if "last_active_time" not in st.session_state:
+    st.session_state.last_active_time = datetime.datetime.now()
+
+# Check Inactivity (15 Minutes = 900 seconds)
+if st.session_state.logged_in:
+    elapsed = (datetime.datetime.now() - st.session_state.last_active_time).total_seconds()
+    if elapsed > 900:
+        st.session_state.logged_in = False
+        st.session_state.user_role = ""
+        st.session_state.username = ""
+        st.session_state.identifier = ""
+        st.query_params.clear()
+        st.warning("⏱️ Session expired due to 15 minutes of inactivity. You have been automatically logged out for security.")
+        st.rerun()
+    else:
+        st.session_state.last_active_time = datetime.datetime.now()
+
 if "st_otp_sent" not in st.session_state:
     st.session_state.st_otp_sent = False
 if "st_generated_otp" not in st.session_state:
@@ -338,9 +381,9 @@ def show_landing_page():
     st.markdown("---")
 
     if portal_choice == "Staff / Admin Portal":
-        admin_action = st.radio("Admin Action", ["Admin Login", "Admin Sign Up", "Forgot Password"], horizontal=True)
+        admin_action = st.radio("Admin Action", ["Admin Login", "Faculty / Admin Sign Up", "Forgot Password"], horizontal=True)
         
-        if admin_action == "Admin Sign Up":
+        if admin_action == "Faculty / Admin Sign Up":
             st.markdown("<h2 style='text-align: center; color: white;'>📝 Faculty / Admin Registration</h2>", unsafe_allow_html=True)
             col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
             with col_r2:
@@ -348,9 +391,12 @@ def show_landing_page():
                     reg_name = st.text_input("Faculty Full Name")
                     reg_id = st.text_input("Admin ID / Employee Code")
                     reg_pass = st.text_input("Create Secure Password", type="password")
+                    assigned_class = st.text_input("Assigned Class / Department", value="B.Tech CSE")
+                    assigned_sec = st.selectbox("Assigned Section", ["Section AJ", "Section AW", "CSE Batch A", "Section B"])
+                    is_advisor = st.checkbox("Is Class Advisor?", value=True)
                     reg_photo = st.file_uploader("Upload Faculty Profile Photo", type=["jpg", "png", "jpeg"])
                     
-                    submit_reg = st.form_submit_button("Register Admin Account")
+                    submit_reg = st.form_submit_button("Register Faculty Account")
                     if submit_reg:
                         if reg_name.strip() and reg_id.strip() and reg_pass.strip():
                             try:
@@ -358,11 +404,13 @@ def show_landing_page():
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
                                 hashed_pass = hash_password(reg_pass.strip())
-                                cursor.execute("INSERT INTO admins (admin_id, name, password, photo) VALUES (?, ?, ?, ?)", 
-                                               (reg_id.strip(), reg_name.strip(), hashed_pass, photo_bytes))
+                                cursor.execute("""
+                                    INSERT INTO admins (admin_id, name, password, photo, assigned_class, assigned_section, is_class_advisor) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (reg_id.strip(), reg_name.strip(), hashed_pass, photo_bytes, assigned_class.strip(), assigned_sec, 1 if is_advisor else 0))
                                 conn.commit()
                                 conn.close()
-                                st.success("Admin account successfully created! Now go to Admin Login.")
+                                st.success("Faculty account successfully registered! Now go to Admin Login.")
                             except sqlite3.IntegrityError:
                                 st.error("Error: This Admin ID is already registered!")
                         else:
@@ -485,7 +533,7 @@ def show_landing_page():
                                     target_contact = s_email if s_email else s_mob
                                     
                                     if not target_contact:
-                                        st.error("No valid email or mobile registered for this account! Please contact admin.")
+                                        st.error("No valid email or mobile registered for this account! Contact Admin.")
                                     else:
                                         otp_code = str(random.randint(100000, 999999))
                                         if "@" in target_contact:
@@ -616,7 +664,7 @@ def show_landing_page():
 def show_student_dashboard():
     conn = sqlite3.connect('dsc_portal.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT photo, id_card_status FROM students WHERE roll_no = ?", (st.session_state.identifier,))
+    cursor.execute("SELECT photo, id_card_status, attendance FROM students WHERE roll_no = ?", (st.session_state.identifier,))
     res = cursor.fetchone()
     conn.close()
     
@@ -678,12 +726,14 @@ def show_student_dashboard():
             </div>
         """, unsafe_allow_html=True)
 
+        att_val = res[2] if res and len(res) > 2 and res[2] is not None else 100.0
+
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.markdown("""
+            st.markdown(f"""
                 <div class="dash-card">
-                    <h4 style="color: #4da6ff; margin-bottom: 5px; font-size: 13px;">Completed Exams</h4>
-                    <h2 style="color: white; margin: 0; font-size: 20px;">0 / 0</h2>
+                    <h4 style="color: #4da6ff; margin-bottom: 5px; font-size: 13px;">Attendance</h4>
+                    <h2 style="color: white; margin: 0; font-size: 20px;">{att_val:.1f}%</h2>
                 </div>
             """, unsafe_allow_html=True)
         with c2:
@@ -715,7 +765,7 @@ def show_student_dashboard():
             st.markdown("""
                 <div class="dash-card" style="text-align: left; padding: 22px;">
                     <h3 style="color: #4da6ff; margin-top: 0; font-size: 16px;">📌 Exam Journey & Guidelines</h3>
-                    <p style="color: #d0d7de; font-size: 13px;">Your account is fully verified by the administration. All upcoming examinations and assignments will appear in your schedule on time. Ensure your biometrics and document verification are up to date.</p>
+                    <p style="color: #d0d7de; font-size: 13px;">Your account is fully verified by the administration. All upcoming examinations and assignments will appear in your schedule on time. If you face any account discrepancies, please contact Admin.</p>
                 </div>
             """, unsafe_allow_html=True)
         with col_inf2:
@@ -973,18 +1023,18 @@ def show_student_dashboard():
 
     elif menu == "❓ Help Desk":
         st.subheader("🛠️ Technical Exam Help Desk & Support")
-        st.info("If you are facing any issues regarding the portal, login, or examinations, please feel free to reach out to the support desk below:")
+        st.info("If you are facing any account discrepancies or technical errors, please contact Admin for resolution.")
         
         col_h1, col_h2 = st.columns(2)
         with col_h1:
-            st.metric("Support Administrator", "RUDRAKSH AGRAWAL")
+            st.metric("Support Administrator", "RUDRAKSH AGRAWAL (Admin)")
         with col_h2:
             st.metric("Helpline Contact Number", "9634350854")
 
 def show_staff_dashboard():
     conn = sqlite3.connect('dsc_portal.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT photo FROM admins WHERE admin_id = ?", (st.session_state.identifier,))
+    cursor.execute("SELECT photo, assigned_class, assigned_section, is_class_advisor, name FROM admins WHERE admin_id = ?", (st.session_state.identifier,))
     res = cursor.fetchone()
     conn.close()
     
@@ -993,20 +1043,27 @@ def show_staff_dashboard():
     else:
         st.sidebar.image("https://img.icons8.com/color/96/administrator-male.png", width=90)
 
-    st.sidebar.markdown(f"### **Admin: {st.session_state.username}**")
-    st.sidebar.markdown(f"<p style='color: #d0d7de; font-size: 12px;'>ID: {st.session_state.identifier} | Faculty</p>", unsafe_allow_html=True)
+    fac_name = res[4] if res and len(res) > 4 else st.session_state.username
+    fac_class = res[1] if res and len(res) > 1 and res[1] else "B.Tech CSE"
+    fac_section = res[2] if res and len(res) > 2 and res[2] else "Section AJ"
+    is_advisor = res[3] if res and len(res) > 3 else 1
+
+    st.sidebar.markdown(f"### **Admin / Faculty: {fac_name}**")
+    st.sidebar.markdown(f"<p style='color: #4da6ff; font-size: 13px; margin:0;'><b>Class:</b> {fac_class}</p>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<p style='color: #4da6ff; font-size: 13px; margin:0;'><b>Section:</b> {fac_section}</p>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<p style='color: #00e676; font-size: 12px; margin-top:2;'><b>Advisor:</b> {'Yes' if is_advisor else 'No'}</p>", unsafe_allow_html=True)
     st.sidebar.markdown("---")
     
-    staff_menu = st.sidebar.radio("Teacher Panel", [
-        "👥 Add & Manage Students",
+    staff_menu = st.sidebar.radio("Faculty / Admin Panel", [
+        "📊 Dashboard & Enrolled Stats",
+        "👥 Register & Delete Students",
+        "📋 Attendance Management",
+        "📝 Quiz & Test Creator",
         "💰 Manage Student Fees",
-        "📊 Section-wise Student Records",
+        "📊 Section-wise Records",
         "📂 Student Personal & Docs",
         "🆔 ID Card Requests",
-        "⚙️ Admin Profile & Photo",
-        "📊 Attendance Management",
-        "📝 Quiz & Test Creator",
-        "💻 Code Challenges Management"
+        "⚙️ Faculty Profile & Class Info"
     ])
     
     st.sidebar.markdown("---")
@@ -1022,25 +1079,59 @@ def show_staff_dashboard():
     st.markdown(f"""
         <div class="dashboard-header-banner">
             <div>
-                <h2 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">Faculty & Admin Control Center — {st.session_state.username}</h2>
-                <p style="margin: 4px 0 0 0; color: #919eab; font-size: 13px;">Faculty ID: <b style="color: #4da6ff;">{st.session_state.identifier}</b></p>
+                <h2 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">Faculty & Admin Control Center — {fac_name}</h2>
+                <p style="margin: 4px 0 0 0; color: #919eab; font-size: 13px;">Assigned Class: <b style="color: #4da6ff;">{fac_class} ({fac_section})</b></p>
             </div>
             <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-                <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600;">🔒 Secure Admin Mode</p>
+                <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600;">🔒 Master Admin Mode</p>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    if staff_menu == "👥 Add & Manage Students":
-        st.subheader("➕ Register New Student & Manage Status (Block/Unblock/Update Photo)")
+    if staff_menu == "📊 Dashboard & Enrolled Stats":
+        st.subheader("📊 Live Enrolled Statistics & Faculty Class Info")
         
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM students")
-        total_registered = cursor.fetchone()[0]
+        total_students = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM admins")
+        total_faculty = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM admins WHERE is_class_advisor = 1")
+        total_advisors = cursor.fetchone()[0]
         conn.close()
-        
-        st.metric("Total Registered Students in Portal", total_registered)
+
+        sc1, sc2, sc3 = st.columns(3)
+        with sc1:
+            st.metric("Total Enrolled Students", total_students)
+        with sc2:
+            st.metric("Total Enrolled Faculty", total_faculty)
+        with sc3:
+            st.metric("Active Class Advisors", total_advisors)
+
+        st.markdown("---")
+        st.markdown("### 🏛️ Faculty Class Assignment Overview")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT admin_id, name, assigned_class, assigned_section, is_class_advisor FROM admins")
+        all_fac = cursor.fetchall()
+        conn.close()
+
+        if all_fac:
+            for f in all_fac:
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 15px; margin-bottom: 10px;">
+                        <h4 style="color: #4da6ff; margin:0;">👨‍🏫 {f[1]} (ID: {f[0]})</h4>
+                        <p style="margin: 4px 0 0 0; color: #d0d7de; font-size: 13px;">
+                            Assigned Class: <b>{f[2]}</b> | Section: <b style="color: #00e676;">{f[3]}</b> | Advisor: <b>{'Yes' if f[4]==1 else 'No'}</b>
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No faculty members registered yet.")
+
+    elif staff_menu == "👥 Register & Delete Students":
+        st.subheader("➕ Register New Student & Account Deletion (Admin Only)")
         
         with st.form("add_student_form"):
             new_name = st.text_input("Student Full Name")
@@ -1068,7 +1159,7 @@ def show_staff_dashboard():
                 else:
                     st.error("Please fill all required fields.")
 
-        st.markdown("### 🛡️ Manage Student Access & Update Photo")
+        st.markdown("### 🛡️ Manage Student Access, Block/Unblock & Delete Accounts")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
         cursor.execute("SELECT roll_no, name, section, status FROM students")
@@ -1079,45 +1170,87 @@ def show_staff_dashboard():
             for st_rec in all_students:
                 r_no, s_name, s_sec, s_status = st_rec
                 with st.expander(f"👤 {s_name} (Roll No: {r_no}) — Section: {s_sec} [Status: {s_status}]"):
-                    col_p1, col_p2 = st.columns([1, 1])
+                    col_p1, col_p2, col_p3 = st.columns(3)
                     with col_p1:
                         if s_status == 'Active':
-                            if st.button(f"Block Student {r_no}", key=f"block_{r_no}"):
+                            if st.button(f"Block {r_no}", key=f"block_{r_no}"):
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
                                 cursor.execute("UPDATE students SET status = 'Blocked' WHERE roll_no = ?", (r_no,))
                                 conn.commit()
                                 conn.close()
-                                st.warning(f"Student {s_name} has been blocked.")
+                                st.warning(f"Student {s_name} blocked.")
                                 st.rerun()
                         else:
-                            if st.button(f"Unblock Student {r_no}", key=f"unblock_{r_no}"):
+                            if st.button(f"Unblock {r_no}", key=f"unblock_{r_no}"):
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
                                 cursor.execute("UPDATE students SET status = 'Active' WHERE roll_no = ?", (r_no,))
                                 conn.commit()
                                 conn.close()
-                                st.success(f"Student {s_name} has been unblocked.")
+                                st.success(f"Student {s_name} unblocked.")
                                 st.rerun()
-                    
                     with col_p2:
-                        with st.form(f"update_photo_form_{r_no}"):
-                            new_st_photo = st.file_uploader(f"Change Photo for {r_no}", type=["jpg", "png", "jpeg"], key=f"ph_up_{r_no}")
-                            up_btn = st.form_submit_button("Update Student Photo")
-                            if up_btn:
-                                if new_st_photo:
-                                    p_bytes = new_st_photo.read()
-                                    conn = sqlite3.connect('dsc_portal.db')
-                                    cursor = conn.cursor()
-                                    cursor.execute("UPDATE students SET photo = ?, status_photo = 'Pending' WHERE roll_no = ?", (p_bytes, r_no))
-                                    conn.commit()
-                                    conn.close()
-                                    st.success(f"Photo updated successfully for Roll No: {r_no}!")
-                                    st.rerun()
-                                else:
-                                    st.error("Please upload an image file.")
+                        if st.button(f"🗑️ Delete Account", key=f"del_{r_no}"):
+                            conn = sqlite3.connect('dsc_portal.db')
+                            cursor = conn.cursor()
+                            cursor.execute("DELETE FROM students WHERE roll_no = ?", (r_no,))
+                            conn.commit()
+                            conn.close()
+                            st.success(f"Student account {r_no} permanently deleted by Admin.")
+                            st.rerun()
+                    with col_p3:
+                        st.write(f"Section: {s_sec}")
         else:
             st.info("No students registered yet.")
+
+    elif staff_menu == "📋 Attendance Management":
+        st.subheader("📋 Student Attendance Management & Modification")
+        st.info("Faculty can upload attendance, modify percentages, and track student presence.")
+
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT roll_no, name, section, attendance FROM students")
+        att_students = cursor.fetchall()
+        conn.close()
+
+        if att_students:
+            for ast in att_students:
+                r_no, name, sec, cur_att = ast
+                with st.form(f"att_form_{r_no}"):
+                    st.write(f"**{name}** (Roll No: `{r_no}`) — Section: `{sec}`")
+                    new_att = st.number_input("Attendance Percentage (%)", value=float(cur_att if cur_att is not None else 100.0), min_value=0.0, max_value=100.0, step=0.5, key=f"att_val_{r_no}")
+                    submit_att = st.form_submit_button("Modify Attendance")
+                    if submit_att:
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE students SET attendance = ? WHERE roll_no = ?", (new_att, r_no))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Attendance updated to {new_att}% for Roll No: {r_no}!")
+                        st.rerun()
+        else:
+            st.info("No students available for attendance tracking.")
+
+    elif staff_menu == "📝 Quiz & Test Creator":
+        st.subheader("✍️ Quiz, Test Creator & Secret Access Code Manager")
+        
+        with st.form("quiz_creator_form"):
+            q_title = st.text_input("Quiz / Assessment Title")
+            q_sec = st.selectbox("Target Section", ["Section AJ", "Section AW", "CSE Batch A", "All Sections"])
+            secret_code = st.text_input("Secret Access Code for Students", type="password")
+            
+            pub_quiz = st.form_submit_button("Publish Quiz & Secret Code")
+            if pub_quiz:
+                if q_title.strip() and secret_code.strip():
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO quizzes (title, section, creator_id) VALUES (?, ?, ?)", (q_title.strip(), q_sec, st.session_state.identifier))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"Quiz '{q_title}' successfully published with secret code access!")
+                else:
+                    st.error("Please fill title and secret code.")
 
     elif staff_menu == "💰 Manage Student Fees":
         st.subheader("💰 Assign / Update Student Fees (Academic, Hostel, Mess, Bus)")
@@ -1156,7 +1289,7 @@ def show_staff_dashboard():
         else:
             st.info("No students available for fee management.")
 
-    elif staff_menu == "📊 Section-wise Student Records":
+    elif staff_menu == "📊 Section-wise Records":
         st.subheader("📊 Section-Wise Detailed Student Records & Filtering")
         
         selected_filter_section = st.selectbox("Filter Students by Section / Batch", ["All Sections", "Section AJ", "Section AW", "CSE Batch A", "Section B"])
@@ -1342,42 +1475,31 @@ def show_staff_dashboard():
         else:
             st.info("No pending ID card applications found.")
 
-    elif staff_menu == "⚙️ Admin Profile & Photo":
-        st.subheader("⚙️ Faculty Profile Settings & Photo Update")
-        st.write(f"Currently Logged in Faculty ID: **{st.session_state.identifier}** ({st.session_state.username})")
+    elif staff_menu == "⚙️ Faculty Profile & Class Info":
+        st.subheader("⚙️ Faculty Profile Settings & Class Assignment")
+        st.write(f"Currently Logged in Faculty ID: **{st.session_state.identifier}** ({fac_name})")
         
         with st.form("admin_photo_update_form"):
             new_admin_photo = st.file_uploader("Upload New Profile Photo for Faculty", type=["jpg", "png", "jpeg"])
-            submit_admin_photo = st.form_submit_button("Update My Profile Photo")
+            new_cls = st.text_input("Update Assigned Class", value=fac_class)
+            new_sec = st.selectbox("Update Assigned Section", ["Section AJ", "Section AW", "CSE Batch A", "Section B"])
+            
+            submit_admin_photo = st.form_submit_button("Update Faculty Profile & Class Info")
             
             if submit_admin_photo:
+                conn = sqlite3.connect('dsc_portal.db')
+                cursor = conn.cursor()
                 if new_admin_photo:
                     admin_photo_bytes = new_admin_photo.read()
-                    conn = sqlite3.connect('dsc_portal.db')
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE admins SET photo = ? WHERE admin_id = ?", (admin_photo_bytes, st.session_state.identifier))
-                    conn.commit()
-                    conn.close()
-                    st.success("Profile photo updated successfully! Refreshing...")
-                    st.rerun()
+                    cursor.execute("UPDATE admins SET photo = ?, assigned_class = ?, assigned_section = ? WHERE admin_id = ?", 
+                                   (admin_photo_bytes, new_cls.strip(), new_sec, st.session_state.identifier))
                 else:
-                    st.error("Please select an image file first.")
-
-    elif staff_menu == "📊 Attendance Management":
-        st.subheader("📋 Student Attendance Management & Tracking")
-        st.selectbox("Section Select", ["Section AJ", "Section AW"])
-        if st.button("Export"):
-            st.success("Exported!")
-
-    elif staff_menu == "📝 Quiz & Test Creator":
-        st.subheader("✍️ Quiz & Assessment Creator")
-        st.text_input("Title")
-        st.button("Publish")
-
-    elif staff_menu == "💻 Code Challenges Management":
-        st.subheader("⚡ Coding Challenges")
-        st.text_input("Problem")
-        st.button("Deploy")
+                    cursor.execute("UPDATE admins SET assigned_class = ?, assigned_section = ? WHERE admin_id = ?", 
+                                   (new_cls.strip(), new_sec, st.session_state.identifier))
+                conn.commit()
+                conn.close()
+                st.success("Faculty profile updated successfully! Refreshing...")
+                st.rerun()
 
 if __name__ == "__main__":
     main()

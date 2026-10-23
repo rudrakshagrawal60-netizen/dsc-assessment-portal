@@ -4,6 +4,7 @@ import random
 import sqlite3
 import hashlib
 import base64
+import os
 
 # Page Configuration
 st.set_page_config(
@@ -12,25 +13,39 @@ st.set_page_config(
     layout="wide"
 )
 
-# Function to convert local background image to base64 for embedding
+# Safe function to convert local background image to base64 if present
 def get_base64_of_bin_file(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+    if os.path.exists(bin_file):
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    return None
 
-# Set background image & Ultra-Professional DSC Portal CSS
+# Set background image & Ultra-Professional DSC Portal CSS safely
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
+    if bin_str:
+        bg_css = f'''
+        .stApp {{
+            background-image: linear-gradient(rgba(10, 18, 26, 0.94), rgba(15, 28, 40, 0.96)), url("data:image/jpg;base64,{bin_str}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #e6edf3;
+        }}
+        '''
+    else:
+        bg_css = '''
+        .stApp {{
+            background: linear-gradient(135deg, #0d1b2a, #1b263b);
+            color: #e6edf3;
+        }}
+        '''
+    
     page_bg_img = f'''
     <style>
-    .stApp {{
-        background-image: linear-gradient(rgba(10, 18, 26, 0.94), rgba(15, 28, 40, 0.96)), url("data:image/jpg;base64,{bin_str}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        color: #e6edf3;
-    }}
+    {bg_css}
     
     /* Sidebar Professional Theme */
     section[data-testid="stSidebar"] {{
@@ -164,7 +179,7 @@ try:
     </style>
     '''
     st.markdown(page_bg_img, unsafe_allow_html=True)
-except:
+except Exception as e:
     pass
 
 # Helper function to hash passwords securely

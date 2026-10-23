@@ -20,7 +20,7 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultimate Dark Theme CSS Overriding All Streamlit Elements & Logo Areas
+# Strict Black Theme CSS Overriding All Streamlit System Preferences
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
@@ -37,7 +37,7 @@ try:
     else:
         bg_css = '''
         .stApp {{
-            background: linear-gradient(135deg, #0d1b2a, #1b263b);
+            background: linear-gradient(135deg, #050b14, #0d1b2a) !important;
             color: #ffffff !important;
         }}
         '''
@@ -46,7 +46,7 @@ try:
     <style>
     {bg_css}
     
-    /* Force entire main block and views to dark theme */
+    /* Force entire main block and views to strict dark theme */
     .main, .block-container, [data-testid="stVerticalBlock"] {{
         background-color: transparent !important;
         color: #ffffff !important;
@@ -88,7 +88,7 @@ try:
 
     /* Sidebar Professional Theme */
     section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #0d1b2a 0%, #1b263b 100%) !important;
+        background: linear-gradient(180deg, #050b14 0%, #0d1b2a 100%) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.08);
         color: #ffffff !important;
     }}
@@ -316,7 +316,7 @@ def show_landing_page():
     st.markdown("---")
 
     if portal_choice == "Staff / Admin Portal":
-        admin_action = st.radio("Admin Action", ["Admin Login", "Admin Sign Up"], horizontal=True)
+        admin_action = st.radio("Admin Action", ["Admin Login", "Admin Sign Up", "Forgot Password"], horizontal=True)
         
         if admin_action == "Admin Sign Up":
             st.markdown("<h2 style='text-align: center; color: white;'>📝 Faculty / Admin Registration</h2>", unsafe_allow_html=True)
@@ -343,6 +343,37 @@ def show_landing_page():
                                 st.success("Admin account successfully created! Now go to Admin Login.")
                             except sqlite3.IntegrityError:
                                 st.error("Error: This Admin ID is already registered!")
+                        else:
+                            st.error("Please fill all fields.")
+                            
+        elif admin_action == "Forgot Password":
+            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Faculty Password Recovery</h2>", unsafe_allow_html=True)
+            col_fp1, col_fp2, col_fp3 = st.columns([1, 2, 1])
+            with col_fp2:
+                with st.form("admin_forgot_form"):
+                    f_admin_id = st.text_input("Admin ID / Employee Code")
+                    f_new_pass = st.text_input("Enter New Password", type="password")
+                    f_confirm_pass = st.text_input("Confirm New Password", type="password")
+                    
+                    submit_f_admin = st.form_submit_button("Reset Admin Password")
+                    if submit_f_admin:
+                        if f_admin_id.strip() and f_new_pass.strip() and f_confirm_pass.strip():
+                            if f_new_pass.strip() == f_confirm_pass.strip():
+                                conn = sqlite3.connect('dsc_portal.db')
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT * FROM admins WHERE admin_id = ?", (f_admin_id.strip(),))
+                                adm_exists = cursor.fetchone()
+                                if adm_exists:
+                                    new_hashed = hash_password(f_new_pass.strip())
+                                    cursor.execute("UPDATE admins SET password = ? WHERE admin_id = ?", (new_hashed, f_admin_id.strip()))
+                                    conn.commit()
+                                    conn.close()
+                                    st.success("Password successfully updated! Please go to Admin Login.")
+                                else:
+                                    conn.close()
+                                    st.error("Admin ID not found in database!")
+                            else:
+                                st.error("Passwords do not match!")
                         else:
                             st.error("Please fill all fields.")
         else:
@@ -407,62 +438,96 @@ def show_landing_page():
         """, unsafe_allow_html=True)
         
         st.write("")
-        st.markdown("<h2 style='text-align: center; margin-top: 15px; color: white;'>🎓 Student Secure Login</h2>", unsafe_allow_html=True)
+        student_action = st.radio("Student Action", ["Student Login", "Forgot Password"], horizontal=True)
         
-        col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
-        with col_f2:
-            with st.form("student_login_form"):
-                roll_input = st.text_input("University Roll Number / Student ID")
-                password_input = st.text_input("Password", type="password")
-                
-                st.markdown("<p style='margin-bottom: 5px; font-weight: bold;'>Verification Captcha Code:</p>", unsafe_allow_html=True)
-                st.markdown(f"<div class='captcha-box'>{st.session_state.captcha_val}</div>", unsafe_allow_html=True)
-                
-                captcha_input = st.text_input("Enter the 4-digit code shown above")
-                
-                col_b1, col_b2 = st.columns(2)
-                with col_b1:
-                    submit_student_login = st.form_submit_button("Student Login")
-                with col_b2:
-                    refresh_captcha = st.form_submit_button("New Captcha")
-                
-                if refresh_captcha:
-                    st.session_state.captcha_val = str(random.randint(1000, 9999))
-                    st.rerun()
-
-                if submit_student_login:
-                    if captcha_input.strip() == st.session_state.captcha_val:
-                        if roll_input.strip() and password_input.strip():
-                            conn = sqlite3.connect('dsc_portal.db')
-                            cursor = conn.cursor()
-                            hashed_pass = hash_password(password_input.strip())
-                            cursor.execute("SELECT * FROM students WHERE roll_no = ? AND password = ?", (roll_input.strip(), hashed_pass))
-                            student = cursor.fetchone()
-                            conn.close()
-                            
-                            if student:
-                                if student[4] == 'Blocked':
-                                    st.error("Your account has been BLOCKED by the administration. Contact support desk.")
+        if student_action == "Forgot Password":
+            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery</h2>", unsafe_allow_html=True)
+            col_sp1, col_sp2, col_sp3 = st.columns([1, 2, 1])
+            with col_sp2:
+                with st.form("student_forgot_form"):
+                    f_roll = st.text_input("University Roll Number / Student ID")
+                    f_email = st.text_input("Registered Email ID")
+                    f_new_pass = st.text_input("Enter New Password", type="password")
+                    f_confirm_pass = st.text_input("Confirm New Password", type="password")
+                    
+                    submit_f_student = st.form_submit_button("Reset Student Password")
+                    if submit_f_student:
+                        if f_roll.strip() and f_email.strip() and f_new_pass.strip() and f_confirm_pass.strip():
+                            if f_new_pass.strip() == f_confirm_pass.strip():
+                                conn = sqlite3.connect('dsc_portal.db')
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT * FROM students WHERE roll_no = ? AND email = ?", (f_roll.strip(), f_email.strip()))
+                                st_exists = cursor.fetchone()
+                                if st_exists:
+                                    new_hashed = hash_password(f_new_pass.strip())
+                                    cursor.execute("UPDATE students SET password = ? WHERE roll_no = ?", (new_hashed, f_roll.strip()))
+                                    conn.commit()
+                                    conn.close()
+                                    st.success("Password successfully updated! Please go to Student Login.")
                                 else:
-                                    st.session_state.logged_in = True
-                                    st.session_state.user_role = "Regular Student"
-                                    st.session_state.username = student[1].upper()
-                                    st.session_state.identifier = student[0]
-                                    
-                                    st.query_params["logged_in"] = "true"
-                                    st.query_params["role"] = st.session_state.user_role
-                                    st.query_params["username"] = st.session_state.username
-                                    st.query_params["identifier"] = st.session_state.identifier
-                                    
-                                    st.success("Student Login Successful!")
-                                    st.rerun()
+                                    conn.close()
+                                    st.error("Roll Number or Email ID does not match our records!")
                             else:
-                                st.error("Access Denied! Roll number not registered or incorrect password.")
+                                st.error("Passwords do not match!")
                         else:
-                            st.error("Please enter Roll Number and Password.")
-                    else:
-                        st.error("Invalid Captcha code!")
+                            st.error("Please fill all fields.")
+        else:
+            st.markdown("<h2 style='text-align: center; margin-top: 15px; color: white;'>🎓 Student Secure Login</h2>", unsafe_allow_html=True)
+            
+            col_f1, col_f2, col_f3 = st.columns([1, 2, 1])
+            with col_f2:
+                with st.form("student_login_form"):
+                    roll_input = st.text_input("University Roll Number / Student ID")
+                    password_input = st.text_input("Password", type="password")
+                    
+                    st.markdown("<p style='margin-bottom: 5px; font-weight: bold;'>Verification Captcha Code:</p>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='captcha-box'>{st.session_state.captcha_val}</div>", unsafe_allow_html=True)
+                    
+                    captcha_input = st.text_input("Enter the 4-digit code shown above")
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        submit_student_login = st.form_submit_button("Student Login")
+                    with col_b2:
+                        refresh_captcha = st.form_submit_button("New Captcha")
+                    
+                    if refresh_captcha:
                         st.session_state.captcha_val = str(random.randint(1000, 9999))
+                        st.rerun()
+
+                    if submit_student_login:
+                        if captcha_input.strip() == st.session_state.captcha_val:
+                            if roll_input.strip() and password_input.strip():
+                                conn = sqlite3.connect('dsc_portal.db')
+                                cursor = conn.cursor()
+                                hashed_pass = hash_password(password_input.strip())
+                                cursor.execute("SELECT * FROM students WHERE roll_no = ? AND password = ?", (roll_input.strip(), hashed_pass))
+                                student = cursor.fetchone()
+                                conn.close()
+                                
+                                if student:
+                                    if student[4] == 'Blocked':
+                                        st.error("Your account has been BLOCKED by the administration. Contact support desk.")
+                                    else:
+                                        st.session_state.logged_in = True
+                                        st.session_state.user_role = "Regular Student"
+                                        st.session_state.username = student[1].upper()
+                                        st.session_state.identifier = student[0]
+                                        
+                                        st.query_params["logged_in"] = "true"
+                                        st.query_params["role"] = st.session_state.user_role
+                                        st.query_params["username"] = st.session_state.username
+                                        st.query_params["identifier"] = st.session_state.identifier
+                                        
+                                        st.success("Student Login Successful!")
+                                        st.rerun()
+                                else:
+                                    st.error("Access Denied! Roll number not registered or incorrect password.")
+                            else:
+                                st.error("Please enter Roll Number and Password.")
+                        else:
+                            st.error("Invalid Captcha code!")
+                            st.session_state.captcha_val = str(random.randint(1000, 9999))
 
 def show_student_dashboard():
     conn = sqlite3.connect('dsc_portal.db')
@@ -1146,12 +1211,12 @@ def show_staff_dashboard():
                         col_ph_a.write("❌ Not Uploaded")
                     if col_ph_b.button(f"Approve Photo", key=f"app_ph_{r_no}"):
                         conn = sqlite3.connect('dsc_portal.db')
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE students SET status_photo = 'Approved' WHERE roll_no = ?", (r_no,))
-                    conn.commit()
-                    conn.close()
-                    st.success("Photo Approved!")
-                    st.rerun()
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE students SET status_photo = 'Approved' WHERE roll_no = ?", (r_no,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Photo Approved!")
+                        st.rerun()
                     if col_ph_c.button(f"Reject Photo", key=f"rej_ph_{r_no}"):
                         conn = sqlite3.connect('dsc_portal.db')
                         cursor = conn.cursor()

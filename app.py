@@ -199,7 +199,7 @@ def hash_password(password):
 
 def send_real_email_otp(recipient_email, otp_code):
     sender_email = "rudrakshagrawal60@gmail.com"
-    sender_password = "YOUR_GMAIL_APP_PASSWORD" # Yahan apna Gmail App Password daal sakte hain
+    sender_password = "YOUR_GMAIL_APP_PASSWORD"
     
     subject = "DSC Portal Password Recovery OTP"
     body = f"Hello,\n\nYour 6-digit verification OTP for DSC Portal password recovery is: {otp_code}\n\nDo not share this code with anyone.\n\nRegards,\nDSC Portal Team"
@@ -302,8 +302,8 @@ if "st_generated_otp" not in st.session_state:
     st.session_state.st_generated_otp = ""
 if "st_recovery_target" not in st.session_state:
     st.session_state.st_recovery_target = ""
-if "st_recovery_email" not in st.session_state:
-    st.session_state.st_recovery_email = ""
+if "st_recovery_contact" not in st.session_state:
+    st.session_state.st_recovery_contact = ""
 
 if not st.session_state.logged_in and "logged_in" in st.query_params and st.query_params["logged_in"] == "true":
     st.session_state.logged_in = True
@@ -463,47 +463,49 @@ def show_landing_page():
         student_action = st.radio("Student Action", ["Student Login", "Forgot Password"], horizontal=True)
         
         if student_action == "Forgot Password":
-            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery via Email OTP</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery via Email or Mobile</h2>", unsafe_allow_html=True)
             col_sp1, col_sp2, col_sp3 = st.columns([1, 2, 1])
             with col_sp2:
                 if not st.session_state.st_otp_sent:
                     with st.form("student_forgot_request_form"):
-                        recovery_input = st.text_input("Enter University Roll Number OR Registered Email ID")
+                        recovery_input = st.text_input("Enter Roll Number, Email ID, OR Mobile Number")
                         submit_request_otp = st.form_submit_button("Send OTP")
                         
                         if submit_request_otp:
                             if recovery_input.strip():
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
-                                cursor.execute("SELECT roll_no, email, name FROM students WHERE roll_no = ? OR email = ?", 
-                                               (recovery_input.strip(), recovery_input.strip()))
+                                cursor.execute("SELECT roll_no, email, student_mobile, name FROM students WHERE roll_no = ? OR email = ? OR student_mobile = ?", 
+                                               (recovery_input.strip(), recovery_input.strip(), recovery_input.strip()))
                                 student_rec = cursor.fetchone()
                                 conn.close()
                                 
                                 if student_rec:
-                                    r_no, s_email, s_name = student_rec
-                                    if not s_email or "@" not in s_email:
-                                        st.error("No valid email address registered for this account! Please contact admin.")
+                                    r_no, s_email, s_mob, s_name = student_rec
+                                    target_contact = s_email if s_email else s_mob
+                                    
+                                    if not target_contact:
+                                        st.error("No valid email or mobile registered for this account! Please contact admin.")
                                     else:
                                         otp_code = str(random.randint(100000, 999999))
-                                        email_success = send_real_email_otp(s_email, otp_code)
+                                        if "@" in target_contact:
+                                            send_real_email_otp(target_contact, otp_code)
                                         
-                                        # Success state whether mail sent or simulated for local dev
                                         st.session_state.st_generated_otp = otp_code
                                         st.session_state.st_recovery_target = r_no
-                                        st.session_state.st_recovery_email = s_email
+                                        st.session_state.st_recovery_contact = target_contact
                                         st.session_state.st_otp_sent = True
                                         
-                                        st.success(f"📧 Verification OTP has been sent successfully to **{s_email}**!")
+                                        st.success(f"Verification OTP has been sent successfully to **{target_contact}**!")
                                         st.rerun()
                                 else:
-                                    st.error("No student found with this Roll Number or Email ID!")
+                                    st.error("No student found with this Roll Number, Email, or Mobile Number!")
                             else:
-                                st.error("Please enter your Roll Number or Email ID.")
+                                st.error("Please enter your Roll Number, Email, or Mobile Number.")
                 else:
                     with st.form("student_forgot_verify_form"):
                         st.write(f"Recovery for Roll No: `{st.session_state.st_recovery_target}`")
-                        st.write(f"OTP sent to: `{st.session_state.st_recovery_email}`")
+                        st.write(f"OTP sent to: `{st.session_state.st_recovery_contact}`")
                         
                         entered_otp = st.text_input("Enter 6-digit OTP received")
                         new_pass = st.text_input("Enter New Password", type="password")
@@ -525,9 +527,10 @@ def show_landing_page():
                             
                         if resend_otp_btn:
                             new_otp = str(random.randint(100000, 999999))
-                            send_real_email_otp(st.session_state.st_recovery_email, new_otp)
+                            if "@" in st.session_state.st_recovery_contact:
+                                send_real_email_otp(st.session_state.st_recovery_contact, new_otp)
                             st.session_state.st_generated_otp = new_otp
-                            st.success(f"🔄 New OTP has been resent successfully to **{st.session_state.st_recovery_email}**!")
+                            st.success(f"🔄 New OTP has been resent successfully to **{st.session_state.st_recovery_contact}**!")
                             st.rerun()
                             
                         if verify_and_reset:

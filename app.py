@@ -20,7 +20,7 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements & Green Banners
+# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements & Expanders
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
@@ -49,6 +49,23 @@ try:
     /* Global text clarity */
     h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label {{
         color: #ffffff !important;
+    }}
+
+    /* Override Expanders and Containers to Dark Theme */
+    div[data-testid="stExpander"] {{
+        background-color: rgba(13, 27, 38, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+    }}
+    div[data-testid="stExpander"] summary {{
+        color: #ffffff !important;
+        background-color: rgba(20, 35, 50, 0.9) !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
+    }}
+    div[data-testid="stExpander"] details {{
+        background-color: rgba(13, 27, 38, 0.95) !important;
     }}
 
     /* Override Streamlit Success / Info / Warning Banners to Dark Theme */

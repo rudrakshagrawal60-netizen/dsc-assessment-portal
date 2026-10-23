@@ -20,24 +20,24 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Strict Black Theme CSS Overriding All Streamlit System Preferences
+# Strict Dark Theme CSS Overriding All Streamlit System Preferences
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
         bg_css = f'''
-        .stApp {{
-            background-image: linear-gradient(rgba(10, 18, 26, 0.98), rgba(15, 28, 40, 0.99)), url("data:image/jpg;base64,{bin_str}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+            background-image: linear-gradient(rgba(7, 13, 20, 0.98), rgba(10, 18, 26, 0.99)), url("data:image/jpg;base64,{bin_str}") !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
             color: #ffffff !important;
         }}
         '''
     else:
         bg_css = '''
-        .stApp {{
-            background: linear-gradient(135deg, #050b14, #0d1b2a) !important;
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+            background: #070d14 !important;
             color: #ffffff !important;
         }}
         '''
@@ -46,37 +46,33 @@ try:
     <style>
     {bg_css}
     
-    /* Force entire main block and views to strict dark theme */
-    .main, .block-container, [data-testid="stVerticalBlock"] {{
-        background-color: transparent !important;
+    .main, .block-container, [data-testid="stVerticalBlock"], [data-testid="stMain"] {{
+        background-color: #070d14 !important;
         color: #ffffff !important;
     }}
 
-    /* Global text clarity */
     h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label, .streamlit-expanderHeader {{
         color: #ffffff !important;
     }}
 
-    /* Override Expanders and Containers to Dark Theme */
     div[data-testid="stExpander"] {{
-        background-color: rgba(13, 27, 38, 0.95) !important;
+        background-color: #0d1b2a !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 10px !important;
         color: #ffffff !important;
     }}
     div[data-testid="stExpander"] summary {{
         color: #ffffff !important;
-        background-color: rgba(20, 35, 50, 0.9) !important;
+        background-color: #142332 !important;
         border-radius: 8px !important;
         padding: 10px !important;
     }}
     div[data-testid="stExpander"] details {{
-        background-color: rgba(13, 27, 38, 0.95) !important;
+        background-color: #0d1b2a !important;
     }}
 
-    /* Override Streamlit Success / Info / Warning Banners to Dark Theme */
     div.stSuccess, div.stInfo, div.stWarning, div.stError {{
-        background-color: rgba(20, 35, 50, 0.95) !important;
+        background-color: #142332 !important;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.15) !important;
         border-radius: 10px !important;
@@ -86,7 +82,6 @@ try:
         color: #ffffff !important;
     }}
 
-    /* Sidebar Professional Theme */
     section[data-testid="stSidebar"] {{
         background: linear-gradient(180deg, #050b14 0%, #0d1b2a 100%) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -99,7 +94,6 @@ try:
         color: #ffffff !important;
     }}
 
-    /* Navigation & Horizontal Radio Buttons Styling */
     div.row-widget.stRadio > div {{
         gap: 8px;
     }}
@@ -116,9 +110,8 @@ try:
         border-color: rgba(0, 123, 255, 0.6) !important;
     }}
 
-    /* Header & Hero Cards */
     .dashboard-header-banner, .hero-box, .dash-card {{
-        background: linear-gradient(135deg, rgba(20, 35, 50, 0.95), rgba(12, 24, 35, 0.98)) !important;
+        background: linear-gradient(135deg, #142332, #0c1823) !important;
         padding: 25px;
         border-radius: 14px;
         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -128,7 +121,6 @@ try:
         margin-bottom: 25px;
     }}
     
-    /* Captcha Box Styling */
     .captcha-box {{
         background: linear-gradient(135deg, #10202c, #1b263b) !important;
         color: #4da6ff !important;
@@ -142,26 +134,24 @@ try:
         margin-bottom: 12px !important;
     }}
     
-    /* Input Fields & File Uploader Theme */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {{
-        background-color: rgba(16, 32, 44, 0.95) !important;
+        background-color: #10202c !important;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 8px !important;
     }}
     
     div[data-testid="stFileUploader"] {{
-        background-color: rgba(16, 32, 44, 0.9) !important;
+        background-color: #10202c !important;
         border: 1px dashed rgba(255, 255, 255, 0.3) !important;
         padding: 15px;
         border-radius: 10px;
         color: #ffffff !important;
     }}
     div[data-testid="stFileUploader"] section {{
-        background-color: rgba(20, 35, 50, 0.9) !important;
+        background-color: #142332 !important;
     }}
 
-    /* Standard Button Customization & Text Visibility */
     .stButton>button {{
         background: linear-gradient(135deg, #007bff, #0056b3) !important;
         color: #ffffff !important;
@@ -182,15 +172,13 @@ try:
         box-shadow: 0 6px 16px rgba(0,123,255,0.6) !important;
     }}
     
-    /* Logout Button */
     section[data-testid="stSidebar"] .stButton:last-child > button {{
         background: linear-gradient(135deg, #ff4d4d, #cc0000) !important;
         box-shadow: 0 4px 12px rgba(255, 77, 77, 0.4) !important;
     }}
 
-    /* Forms Container Dark Background override */
     div[data-testid="stForm"] {{
-        background: rgba(13, 27, 38, 0.95) !important;
+        background: #0d1b2a !important;
         padding: 25px;
         border-radius: 14px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.8);
@@ -282,6 +270,12 @@ if "username" not in st.session_state:
     st.session_state.username = ""
 if "identifier" not in st.session_state:
     st.session_state.identifier = ""
+if "st_otp_sent" not in st.session_state:
+    st.session_state.st_otp_sent = False
+if "st_generated_otp" not in st.session_state:
+    st.session_state.st_generated_otp = ""
+if "st_recovery_target" not in st.session_state:
+    st.session_state.st_recovery_target = ""
 
 if not st.session_state.logged_in and "logged_in" in st.query_params and st.query_params["logged_in"] == "true":
     st.session_state.logged_in = True
@@ -441,36 +435,81 @@ def show_landing_page():
         student_action = st.radio("Student Action", ["Student Login", "Forgot Password"], horizontal=True)
         
         if student_action == "Forgot Password":
-            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery via OTP</h2>", unsafe_allow_html=True)
             col_sp1, col_sp2, col_sp3 = st.columns([1, 2, 1])
             with col_sp2:
-                with st.form("student_forgot_form"):
-                    f_roll = st.text_input("University Roll Number / Student ID")
-                    f_email = st.text_input("Registered Email ID")
-                    f_new_pass = st.text_input("Enter New Password", type="password")
-                    f_confirm_pass = st.text_input("Confirm New Password", type="password")
-                    
-                    submit_f_student = st.form_submit_button("Reset Student Password")
-                    if submit_f_student:
-                        if f_roll.strip() and f_email.strip() and f_new_pass.strip() and f_confirm_pass.strip():
-                            if f_new_pass.strip() == f_confirm_pass.strip():
+                if not st.session_state.st_otp_sent:
+                    with st.form("student_forgot_request_form"):
+                        recovery_input = st.text_input("Enter University Roll Number OR Student Mobile Number")
+                        submit_request_otp = st.form_submit_button("Send OTP")
+                        
+                        if submit_request_otp:
+                            if recovery_input.strip():
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
-                                cursor.execute("SELECT * FROM students WHERE roll_no = ? AND email = ?", (f_roll.strip(), f_email.strip()))
-                                st_exists = cursor.fetchone()
-                                if st_exists:
-                                    new_hashed = hash_password(f_new_pass.strip())
-                                    cursor.execute("UPDATE students SET password = ? WHERE roll_no = ?", (new_hashed, f_roll.strip()))
-                                    conn.commit()
-                                    conn.close()
-                                    st.success("Password successfully updated! Please go to Student Login.")
+                                cursor.execute("SELECT roll_no, email, student_mobile FROM students WHERE roll_no = ? OR student_mobile = ?", 
+                                               (recovery_input.strip(), recovery_input.strip()))
+                                student_rec = cursor.fetchone()
+                                conn.close()
+                                
+                                if student_rec:
+                                    r_no, s_email, s_mob = student_rec
+                                    otp_code = str(random.randint(100000, 999999))
+                                    st.session_state.st_generated_otp = otp_code
+                                    st.session_state.st_recovery_target = r_no
+                                    st.session_state.st_otp_sent = True
+                                    
+                                    if recovery_input.strip() == s_mob:
+                                        st.success(f"📱 OTP has been sent successfully to your Mobile Number ending with **{s_mob[-4:]}**!")
+                                    else:
+                                        st.success(f"📧 OTP has been sent successfully to your Registered Email ID (**{s_email}**!")
+                                    st.info(f"🔑 [Simulation OTP]: **{otp_code}**")
+                                    st.rerun()
                                 else:
-                                    conn.close()
-                                    st.error("Roll Number or Email ID does not match our records!")
+                                    st.error("No student found with this Roll Number or Mobile Number!")
                             else:
-                                st.error("Passwords do not match!")
-                        else:
-                            st.error("Please fill all fields.")
+                                st.error("Please enter your Roll Number or Mobile Number.")
+                else:
+                    with st.form("student_forgot_verify_form"):
+                        st.write(f"Recovery for Roll No: `{st.session_state.st_recovery_target}`")
+                        entered_otp = st.text_input("Enter 6-digit OTP received")
+                        new_pass = st.text_input("Enter New Password", type="password")
+                        confirm_pass = st.text_input("Confirm New Password", type="password")
+                        
+                        col_bt1, col_bt2 = st.columns(2)
+                        with col_bt1:
+                            verify_and_reset = st.form_submit_button("Verify & Reset Password")
+                        with col_bt2:
+                            cancel_reset = st.form_submit_button("Cancel / Retry")
+                            
+                        if cancel_reset:
+                            st.session_state.st_otp_sent = False
+                            st.session_state.st_generated_otp = ""
+                            st.session_state.st_recovery_target = ""
+                            st.rerun()
+                            
+                        if verify_and_reset:
+                            if entered_otp.strip() and new_pass.strip() and confirm_pass.strip():
+                                if entered_otp.strip() == st.session_state.st_generated_otp:
+                                    if new_pass.strip() == confirm_pass.strip():
+                                        conn = sqlite3.connect('dsc_portal.db')
+                                        cursor = conn.cursor()
+                                        hashed = hash_password(new_pass.strip())
+                                        cursor.execute("UPDATE students SET password = ? WHERE roll_no = ?", (hashed, st.session_state.st_recovery_target))
+                                        conn.commit()
+                                        conn.close()
+                                        
+                                        st.session_state.st_otp_sent = False
+                                        st.session_state.st_generated_otp = ""
+                                        st.session_state.st_recovery_target = ""
+                                        st.success("🎉 Password successfully reset! Please go to Student Login.")
+                                        st.rerun()
+                                    else:
+                                        st.error("New Passwords do not match!")
+                                else:
+                                    st.error("Invalid OTP! Please enter correct code.")
+                            else:
+                                st.error("Please fill all fields.")
         else:
             st.markdown("<h2 style='text-align: center; margin-top: 15px; color: white;'>🎓 Student Secure Login</h2>", unsafe_allow_html=True)
             

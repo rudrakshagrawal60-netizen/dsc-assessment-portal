@@ -13,7 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Safe function to convert local background image to base64 if present
 def get_base64_of_bin_file(bin_file):
     if os.path.exists(bin_file):
         with open(bin_file, 'rb') as f:
@@ -21,13 +20,13 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Set background image & Ultra-Professional Dark DSC Portal CSS
+# Ultra-Professional Dark Theme CSS (Ensuring Forms & Containers are Dark)
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
         bg_css = f'''
         .stApp {{
-            background-image: linear-gradient(rgba(10, 18, 26, 0.95), rgba(15, 28, 40, 0.97)), url("data:image/jpg;base64,{bin_str}");
+            background-image: linear-gradient(rgba(10, 18, 26, 0.96), rgba(15, 28, 40, 0.98)), url("data:image/jpg;base64,{bin_str}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -47,7 +46,7 @@ try:
     <style>
     {bg_css}
     
-    /* Ensure all text, labels, and headers are crystal clear white/light */
+    /* Global text clarity */
     h1, h2, h3, h4, h5, h6, p, span, label, div {{
         color: #ffffff !important;
     }}
@@ -65,7 +64,7 @@ try:
         color: #ffffff !important;
     }}
 
-    /* Completely Hide Radio Circles and make navigation look like professional menu cards */
+    /* Navigation Radio Cards */
     section[data-testid="stSidebar"] div.row-widget.stRadio > div {{
         gap: 5px;
     }}
@@ -86,45 +85,16 @@ try:
         border-color: rgba(0, 123, 255, 0.6);
     }}
 
-    /* Professional Top Header Banner */
-    .dashboard-header-banner {{
-        background: linear-gradient(135deg, rgba(20, 35, 50, 0.95), rgba(12, 24, 35, 0.98));
-        padding: 22px 30px;
+    /* Header & Hero Cards */
+    .dashboard-header-banner, .hero-box, .dash-card {{
+        background: linear-gradient(135deg, rgba(20, 35, 50, 0.95), rgba(12, 24, 35, 0.98)) !important;
+        padding: 25px;
         border-radius: 14px;
         border: 1px solid rgba(255, 255, 255, 0.15);
         box-shadow: 0 8px 25px rgba(0,0,0,0.6);
         backdrop-filter: blur(10px);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
         color: #ffffff !important;
-    }}
-
-    /* Modern Hero Card */
-    .hero-box {{ 
-        background: linear-gradient(135deg, rgba(20, 35, 50, 0.9), rgba(13, 27, 38, 0.95)); 
-        padding: 30px; 
-        border-radius: 14px; 
-        color: white !important; 
-        text-align: center; 
-        box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(10px);
         margin-bottom: 25px;
-    }}
-    
-    /* Professional Dashboard Metrics Cards */
-    .dash-card {{
-        background: linear-gradient(135deg, rgba(22, 40, 58, 0.9), rgba(13, 27, 38, 0.95));
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-        backdrop-filter: blur(8px);
-        text-align: center;
-        margin-bottom: 10px;
-        color: #ffffff !important;
     }}
     
     /* Captcha Box Styling */
@@ -166,21 +136,18 @@ try:
         box-shadow: 0 6px 16px rgba(0,123,255,0.6) !important;
     }}
     
-    /* Stylish Logout Button inside Sidebar */
+    /* Logout Button */
     section[data-testid="stSidebar"] .stButton:last-child > button {{
         background: linear-gradient(135deg, #ff4d4d, #cc0000) !important;
         box-shadow: 0 4px 12px rgba(255, 77, 77, 0.4) !important;
     }}
-    section[data-testid="stSidebar"] .stButton:last-child > button:hover {{
-        background: linear-gradient(135deg, #cc0000, #990000) !important;
-    }}
 
-    /* Forms Styling */
-    div.stForm {{
-        background: rgba(13, 27, 38, 0.95);
+    /* Forms Container Dark Background override */
+    div[data-testid="stForm"] {{
+        background: rgba(13, 27, 38, 0.95) !important;
         padding: 25px;
         border-radius: 14px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         border: 1px solid rgba(255, 255, 255, 0.15);
         color: white !important;
     }}
@@ -190,11 +157,9 @@ try:
 except Exception as e:
     pass
 
-# Helper function to hash passwords securely
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-# Database Initialization with Fees Columns
 def init_db():
     conn = sqlite3.connect('dsc_portal.db')
     cursor = conn.cursor()
@@ -263,7 +228,6 @@ def init_db():
 
 init_db()
 
-# Session State Initialization
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_role" not in st.session_state:

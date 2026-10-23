@@ -20,7 +20,7 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements
+# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements & Green Banners
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
@@ -48,6 +48,18 @@ try:
     
     /* Global text clarity */
     h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label {{
+        color: #ffffff !important;
+    }}
+
+    /* Override Streamlit Success / Info / Warning Banners to Dark Theme */
+    div.stSuccess, div.stInfo, div.stWarning, div.stError {{
+        background-color: rgba(20, 35, 50, 0.95) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+    }}
+    div.stSuccess p, div.stInfo p, div.stWarning p, div.stError p {{
         color: #ffffff !important;
     }}
 
@@ -95,15 +107,15 @@ try:
     
     /* Captcha Box Styling */
     .captcha-box {{
-        background: linear-gradient(135deg, #e6f2ff, #cce5ff) !important;
-        color: #004085 !important;
+        background: linear-gradient(135deg, #10202c, #1b263b) !important;
+        color: #4da6ff !important;
         font-size: 28px !important;
         font-weight: 800 !important;
         letter-spacing: 10px !important;
         text-align: center !important;
         padding: 12px !important;
         border-radius: 8px !important;
-        border: 2px dashed #0056b3 !important;
+        border: 2px dashed #007bff !important;
         margin-bottom: 12px !important;
     }}
     
@@ -623,7 +635,7 @@ def show_student_dashboard():
                     st.error(f"Error updating details: {e}")
 
     elif menu == "💳 Fee Dues & Payments":
-        st.subheader("💳 Student Fee Dues & Breakdown Portal")
+        st.subheader("💳 Student Fee Dues & Payment Gateway Portal")
         
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
@@ -671,13 +683,44 @@ def show_student_dashboard():
         st.markdown(f"""
             <div class="hero-box" style="text-align: left; padding: 20px;">
                 <h3 style="margin: 0; color: #ffffff; font-size: 18px;">Total Outstanding Dues: <span style="color: #00e676;">₹ {total_fee:,.2f}</span></h3>
-                <p style="margin: 5px 0 0 0; color: #919eab; font-size: 13px;">Please pay your pending dues before the upcoming semester examination deadline.</p>
+                <p style="margin: 5px 0 0 0; color: #919eab; font-size: 13px;">Please pay your pending dues securely via online payment gateway.</p>
             </div>
         """, unsafe_allow_html=True)
 
         if total_fee > 0:
+            if "show_payment_modal" not in st.session_state:
+                st.session_state.show_payment_modal = False
+
             if st.button("Proceed to Online Fee Payment Gateway"):
-                st.success("Redirecting to secure payment gateway... (Simulation: Payment Successful!)")
+                st.session_state.show_payment_modal = True
+
+            if st.session_state.show_payment_modal:
+                st.markdown("---")
+                st.markdown("<h3 style='color: #4da6ff;'>💳 Secure Payment Checkout Form</h3>", unsafe_allow_html=True)
+                with st.form("payment_gateway_form"):
+                    pay_method = st.selectbox("Select Payment Method", ["Credit / Debit Card", "UPI / QR Code", "Net Banking"])
+                    if pay_method == "Credit / Debit Card":
+                        card_num = st.text_input("Card Number (16 Digits)")
+                        card_exp = st.text_input("Expiry Date (MM/YY)")
+                        card_cvv = st.text_input("CVV", type="password")
+                    elif pay_method == "UPI / QR Code":
+                        upi_id = st.text_input("Enter UPI ID (e.g. user@okhdfcbank)")
+                    else:
+                        bank_name = st.selectbox("Select Bank", ["State Bank of India", "HDFC Bank", "ICICI Bank", "Axis Bank", "Punjab National Bank"])
+
+                    pay_submit = st.form_submit_button(f"Pay ₹ {total_fee:,.2f} Securely")
+                    if pay_submit:
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE students SET academic_fee = 0.0, hostel_fee = 0.0, mess_fee = 0.0, bus_fee = 0.0
+                            WHERE roll_no = ?
+                        """, (st.session_state.identifier,))
+                        conn.commit()
+                        conn.close()
+                        st.session_state.show_payment_modal = False
+                        st.success("🎉 Payment Successful! All fee dues have been cleared.")
+                        st.rerun()
         else:
             st.success("🎉 All dues are fully cleared! No pending payments.")
 
@@ -1102,7 +1145,6 @@ def show_staff_dashboard():
         id_requests = cursor.fetchall()
         conn.close()
         
-        path = ""
         if id_requests:
             for req in id_requests:
                 r_no, name, sec, id_status = req

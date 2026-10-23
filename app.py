@@ -381,42 +381,9 @@ def show_landing_page():
     st.markdown("---")
 
     if portal_choice == "Staff / Admin Portal":
-        admin_action = st.radio("Admin Action", ["Admin Login", "Faculty / Admin Sign Up", "Forgot Password"], horizontal=True)
+        admin_action = st.radio("Admin Action", ["Admin Login", "Forgot Password"], horizontal=True)
         
-        if admin_action == "Faculty / Admin Sign Up":
-            st.markdown("<h2 style='text-align: center; color: white;'>📝 Faculty / Admin Registration</h2>", unsafe_allow_html=True)
-            col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
-            with col_r2:
-                with st.form("admin_signup_form"):
-                    reg_name = st.text_input("Faculty Full Name")
-                    reg_id = st.text_input("Admin ID / Employee Code")
-                    reg_pass = st.text_input("Create Secure Password", type="password")
-                    assigned_class = st.text_input("Assigned Class / Department", value="B.Tech CSE")
-                    assigned_sec = st.selectbox("Assigned Section", ["Section AJ", "Section AW", "CSE Batch A", "Section B"])
-                    is_advisor = st.checkbox("Is Class Advisor?", value=True)
-                    reg_photo = st.file_uploader("Upload Faculty Profile Photo", type=["jpg", "png", "jpeg"])
-                    
-                    submit_reg = st.form_submit_button("Register Faculty Account")
-                    if submit_reg:
-                        if reg_name.strip() and reg_id.strip() and reg_pass.strip():
-                            try:
-                                photo_bytes = reg_photo.read() if reg_photo else None
-                                conn = sqlite3.connect('dsc_portal.db')
-                                cursor = conn.cursor()
-                                hashed_pass = hash_password(reg_pass.strip())
-                                cursor.execute("""
-                                    INSERT INTO admins (admin_id, name, password, photo, assigned_class, assigned_section, is_class_advisor) 
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (reg_id.strip(), reg_name.strip(), hashed_pass, photo_bytes, assigned_class.strip(), assigned_sec, 1 if is_advisor else 0))
-                                conn.commit()
-                                conn.close()
-                                st.success("Faculty account successfully registered! Now go to Admin Login.")
-                            except sqlite3.IntegrityError:
-                                st.error("Error: This Admin ID is already registered!")
-                        else:
-                            st.error("Please fill all fields.")
-                            
-        elif admin_action == "Forgot Password":
+        if admin_action == "Forgot Password":
             st.markdown("<h2 style='text-align: center; color: white;'>🔄 Faculty Password Recovery</h2>", unsafe_allow_html=True)
             col_fp1, col_fp2, col_fp3 = st.columns([1, 2, 1])
             with col_fp2:

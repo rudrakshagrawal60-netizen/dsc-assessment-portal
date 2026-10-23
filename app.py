@@ -20,7 +20,7 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Ultra-Professional Dark Theme CSS (Ensuring Forms & Containers are Dark)
+# Ultra-Professional Dark Theme CSS Overriding All Streamlit Elements
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
@@ -47,7 +47,7 @@ try:
     {bg_css}
     
     /* Global text clarity */
-    h1, h2, h3, h4, h5, h6, p, span, label, div {{
+    h1, h2, h3, h4, h5, h6, p, span, label, div, .stRadio label {{
         color: #ffffff !important;
     }}
 
@@ -64,25 +64,21 @@ try:
         color: #ffffff !important;
     }}
 
-    /* Navigation Radio Cards */
-    section[data-testid="stSidebar"] div.row-widget.stRadio > div {{
-        gap: 5px;
+    /* Navigation & Horizontal Radio Buttons Styling */
+    div.row-widget.stRadio > div {{
+        gap: 8px;
     }}
-    section[data-testid="stSidebar"] div.row-widget.stRadio input[type="radio"] {{
-        display: none !important;
-    }}
-    section[data-testid="stSidebar"] div.row-widget.stRadio label {{
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        padding: 8px 12px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        cursor: pointer;
+    div.row-widget.stRadio label {{
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        padding: 8px 14px !important;
+        border-radius: 8px !important;
         color: #ffffff !important;
+        font-weight: 600 !important;
     }}
-    section[data-testid="stSidebar"] div.row-widget.stRadio label:hover {{
-        background: rgba(0, 123, 255, 0.3);
-        border-color: rgba(0, 123, 255, 0.6);
+    div.row-widget.stRadio label:hover {{
+        background: rgba(0, 123, 255, 0.3) !important;
+        border-color: rgba(0, 123, 255, 0.6) !important;
     }}
 
     /* Header & Hero Cards */
@@ -111,12 +107,23 @@ try:
         margin-bottom: 12px !important;
     }}
     
-    /* Input Fields Theme */
+    /* Input Fields & File Uploader Theme */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {{
         background-color: rgba(16, 32, 44, 0.95) !important;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 8px !important;
+    }}
+    
+    div[data-testid="stFileUploader"] {{
+        background-color: rgba(16, 32, 44, 0.9) !important;
+        border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+        padding: 15px;
+        border-radius: 10px;
+        color: #ffffff !important;
+    }}
+    div[data-testid="stFileUploader"] section {{
+        background-color: rgba(20, 35, 50, 0.9) !important;
     }}
 
     /* Standard Button Customization */
@@ -1095,6 +1102,7 @@ def show_staff_dashboard():
         id_requests = cursor.fetchall()
         conn.close()
         
+        path = ""
         if id_requests:
             for req in id_requests:
                 r_no, name, sec, id_status = req

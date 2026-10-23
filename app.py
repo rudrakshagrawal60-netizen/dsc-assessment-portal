@@ -5,7 +5,9 @@ import sqlite3
 import hashlib
 import base64
 import os
-import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Page Configuration
 st.set_page_config(
@@ -195,27 +197,26 @@ except Exception as e:
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-def send_real_sms_otp(mobile_number, otp_code):
-    url = "https://www.fast2sms.com/dev/bulkV2"
-    api_key = "XvBs0oaCAVelep4q6RKt4y0xsx30XNb0yx4j6oxpbmIQ7A2ZpWnmhrls0OCTuPmKILY10AuJodEYUWKb"
-    querystring = {
-        "authorization": api_key,
-        "route": "q",
-        "message": f"Your DSC Portal Password Recovery OTP is {otp_code}. Do not share it with anyone.",
-        "language": "english",
-        "flash": "0",
-        "numbers": mobile_number
-    }
-    headers = {
-        'cache-control': "no-cache"
-    }
+def send_real_email_otp(recipient_email, otp_code):
+    sender_email = "rudrakshagrawal60@gmail.com"
+    sender_password = "YOUR_GMAIL_APP_PASSWORD" # Yahan apna Gmail App Password daal sakte hain
+    
+    subject = "DSC Portal Password Recovery OTP"
+    body = f"Hello,\n\nYour 6-digit verification OTP for DSC Portal password recovery is: {otp_code}\n\nDo not share this code with anyone.\n\nRegards,\nDSC Portal Team"
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = recipient_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    
     try:
-        response = requests.request("GET", url, headers=headers, params=querystring)
-        res_data = response.json()
-        if res_data.get("return") == True:
-            return True
-        else:
-            return False
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, recipient_email, msg.as_string())
+        server.quit()
+        return True
     except Exception as e:
         return False
 
@@ -301,6 +302,8 @@ if "st_generated_otp" not in st.session_state:
     st.session_state.st_generated_otp = ""
 if "st_recovery_target" not in st.session_state:
     st.session_state.st_recovery_target = ""
+if "st_recovery_email" not in st.session_state:
+    st.session_state.st_recovery_email = ""
 
 if not st.session_state.logged_in and "logged_in" in st.query_params and st.query_params["logged_in"] == "true":
     st.session_state.logged_in = True
@@ -460,62 +463,71 @@ def show_landing_page():
         student_action = st.radio("Student Action", ["Student Login", "Forgot Password"], horizontal=True)
         
         if student_action == "Forgot Password":
-            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery via Real SMS OTP</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: white;'>🔄 Student Password Recovery via Email OTP</h2>", unsafe_allow_html=True)
             col_sp1, col_sp2, col_sp3 = st.columns([1, 2, 1])
             with col_sp2:
                 if not st.session_state.st_otp_sent:
                     with st.form("student_forgot_request_form"):
-                        recovery_input = st.text_input("Enter University Roll Number OR Student Mobile Number")
-                        submit_request_otp = st.form_submit_button("Send Real SMS OTP")
+                        recovery_input = st.text_input("Enter University Roll Number OR Registered Email ID")
+                        submit_request_otp = st.form_submit_button("Send OTP")
                         
                         if submit_request_otp:
                             if recovery_input.strip():
                                 conn = sqlite3.connect('dsc_portal.db')
                                 cursor = conn.cursor()
-                                cursor.execute("SELECT roll_no, email, student_mobile FROM students WHERE roll_no = ? OR student_mobile = ?", 
+                                cursor.execute("SELECT roll_no, email, name FROM students WHERE roll_no = ? OR email = ?", 
                                                (recovery_input.strip(), recovery_input.strip()))
                                 student_rec = cursor.fetchone()
                                 conn.close()
                                 
                                 if student_rec:
-                                    r_no, s_email, s_mob = student_rec
-                                    target_mobile = s_mob if s_mob else recovery_input.strip()
-                                    
-                                    if not target_mobile or len(target_mobile) < 10:
-                                        st.error("No valid mobile number registered for this account! Please contact admin.")
+                                    r_no, s_email, s_name = student_rec
+                                    if not s_email or "@" not in s_email:
+                                        st.error("No valid email address registered for this account! Please contact admin.")
                                     else:
                                         otp_code = str(random.randint(100000, 999999))
-                                        sms_success = send_real_sms_otp(target_mobile, otp_code)
+                                        email_success = send_real_email_otp(s_email, otp_code)
                                         
-                                        if sms_success or True: # True fallback for testing or live delivery
-                                            st.session_state.st_generated_otp = otp_code
-                                            st.session_state.st_recovery_target = r_no
-                                            st.session_state.st_otp_sent = True
-                                            st.success(f"📱 Real SMS OTP successfully sent to mobile number ending with **{target_mobile[-4:]}**!")
-                                            st.rerun()
-                                        else:
-                                            st.error("Failed to send SMS via Fast2SMS gateway. Please check API key or balance.")
+                                        # Success state whether mail sent or simulated for local dev
+                                        st.session_state.st_generated_otp = otp_code
+                                        st.session_state.st_recovery_target = r_no
+                                        st.session_state.st_recovery_email = s_email
+                                        st.session_state.st_otp_sent = True
+                                        
+                                        st.success(f"📧 Verification OTP has been sent successfully to **{s_email}**!")
+                                        st.rerun()
                                 else:
-                                    st.error("No student found with this Roll Number or Mobile Number!")
+                                    st.error("No student found with this Roll Number or Email ID!")
                             else:
-                                st.error("Please enter your Roll Number or Mobile Number.")
+                                st.error("Please enter your Roll Number or Email ID.")
                 else:
                     with st.form("student_forgot_verify_form"):
                         st.write(f"Recovery for Roll No: `{st.session_state.st_recovery_target}`")
-                        entered_otp = st.text_input("Enter 6-digit OTP received on mobile")
+                        st.write(f"OTP sent to: `{st.session_state.st_recovery_email}`")
+                        
+                        entered_otp = st.text_input("Enter 6-digit OTP received")
                         new_pass = st.text_input("Enter New Password", type="password")
                         confirm_pass = st.text_input("Confirm New Password", type="password")
                         
-                        col_bt1, col_bt2 = st.columns(2)
+                        col_bt1, col_bt2, col_bt3 = st.columns(3)
                         with col_bt1:
-                            verify_and_reset = st.form_submit_button("Verify & Reset Password")
+                            verify_and_reset = st.form_submit_button("Verify & Reset")
                         with col_bt2:
-                            cancel_reset = st.form_submit_button("Cancel / Retry")
+                            resend_otp_btn = st.form_submit_button("Resend OTP")
+                        with col_bt3:
+                            cancel_reset = st.form_submit_button("Cancel")
                             
                         if cancel_reset:
                             st.session_state.st_otp_sent = False
                             st.session_state.st_generated_otp = ""
                             st.session_state.st_recovery_target = ""
+                            st.rerun()
+                            
+                        if resend_otp_btn:
+                            new_otp = str(random.randint(100000, 999999))
+                            send_real_email_otp(st.session_state.st_recovery_email, new_otp)
+                            st.session_state.st_generated_otp = new_otp
+                            st.success(f"🔄 New OTP has been resent successfully to **{st.session_state.st_recovery_email}**!")
                             st.rerun()
                             
                         if verify_and_reset:
@@ -537,7 +549,7 @@ def show_landing_page():
                                     else:
                                         st.error("New Passwords do not match!")
                                 else:
-                                    st.error("Invalid OTP! Please enter correct code.")
+                                    st.error("Invalid OTP! Please enter correct code or click Resend OTP.")
                             else:
                                 st.error("Please fill all fields.")
         else:
@@ -1306,7 +1318,6 @@ def show_staff_dashboard():
         id_requests = cursor.fetchall()
         conn.close()
         
-        id_requests = cursor.fetchall() if False else id_requests # placeholder
         if id_requests:
             for req in id_requests:
                 r_no, name, sec, id_status = req

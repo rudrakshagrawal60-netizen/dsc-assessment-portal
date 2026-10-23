@@ -21,25 +21,25 @@ def get_base64_of_bin_file(bin_file):
         return base64.b64encode(data).decode()
     return None
 
-# Set background image & Ultra-Professional DSC Portal CSS safely
+# Set background image & Ultra-Professional Dark DSC Portal CSS
 try:
     bin_str = get_base64_of_bin_file('bg.jpg')
     if bin_str:
         bg_css = f'''
         .stApp {{
-            background-image: linear-gradient(rgba(10, 18, 26, 0.94), rgba(15, 28, 40, 0.96)), url("data:image/jpg;base64,{bin_str}");
+            background-image: linear-gradient(rgba(10, 18, 26, 0.95), rgba(15, 28, 40, 0.97)), url("data:image/jpg;base64,{bin_str}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            color: #e6edf3;
+            color: #ffffff !important;
         }}
         '''
     else:
         bg_css = '''
         .stApp {{
             background: linear-gradient(135deg, #0d1b2a, #1b263b);
-            color: #e6edf3;
+            color: #ffffff !important;
         }}
         '''
     
@@ -47,11 +47,16 @@ try:
     <style>
     {bg_css}
     
+    /* Ensure all text, labels, and headers are crystal clear white/light */
+    h1, h2, h3, h4, h5, h6, p, span, label, div {{
+        color: #ffffff !important;
+    }}
+
     /* Sidebar Professional Theme */
     section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #0d1b2a 0%, #1b263b 100%);
+        background: linear-gradient(180deg, #0d1b2a 0%, #1b263b 100%) !important;
         border-right: 1px solid rgba(255, 255, 255, 0.08);
-        color: #ffffff;
+        color: #ffffff !important;
     }}
     
     section[data-testid="stSidebar"] .stMarkdown, 
@@ -68,41 +73,43 @@ try:
         display: none !important;
     }}
     section[data-testid="stSidebar"] div.row-widget.stRadio label {{
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         padding: 8px 12px;
         border-radius: 8px;
         transition: all 0.3s ease;
         cursor: pointer;
+        color: #ffffff !important;
     }}
     section[data-testid="stSidebar"] div.row-widget.stRadio label:hover {{
-        background: rgba(0, 123, 255, 0.2);
-        border-color: rgba(0, 123, 255, 0.5);
+        background: rgba(0, 123, 255, 0.3);
+        border-color: rgba(0, 123, 255, 0.6);
     }}
 
     /* Professional Top Header Banner */
     .dashboard-header-banner {{
-        background: linear-gradient(135deg, rgba(20, 35, 50, 0.9), rgba(12, 24, 35, 0.95));
+        background: linear-gradient(135deg, rgba(20, 35, 50, 0.95), rgba(12, 24, 35, 0.98));
         padding: 22px 30px;
         border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.6);
         backdrop-filter: blur(10px);
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 25px;
+        color: #ffffff !important;
     }}
 
     /* Modern Hero Card */
     .hero-box {{ 
-        background: linear-gradient(135deg, rgba(20, 35, 50, 0.85), rgba(13, 27, 38, 0.9)); 
+        background: linear-gradient(135deg, rgba(20, 35, 50, 0.9), rgba(13, 27, 38, 0.95)); 
         padding: 30px; 
         border-radius: 14px; 
-        color: white; 
+        color: white !important; 
         text-align: center; 
-        box-shadow: 0 8px 25px rgba(0,0,0,0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(10px);
         margin-bottom: 25px;
     }}
@@ -112,11 +119,12 @@ try:
         background: linear-gradient(135deg, rgba(22, 40, 58, 0.9), rgba(13, 27, 38, 0.95));
         padding: 20px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.5);
         backdrop-filter: blur(8px);
         text-align: center;
         margin-bottom: 10px;
+        color: #ffffff !important;
     }}
     
     /* Captcha Box Styling */
@@ -135,9 +143,9 @@ try:
     
     /* Input Fields Theme */
     .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {{
-        background-color: rgba(16, 32, 44, 0.9) !important;
+        background-color: rgba(16, 32, 44, 0.95) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 8px !important;
     }}
 
@@ -169,12 +177,12 @@ try:
 
     /* Forms Styling */
     div.stForm {{
-        background: rgba(13, 27, 38, 0.9);
+        background: rgba(13, 27, 38, 0.95);
         padding: 25px;
         border-radius: 14px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: white !important;
     }}
     </style>
     '''

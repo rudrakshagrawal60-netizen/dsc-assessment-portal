@@ -5,6 +5,7 @@ import sqlite3
 import hashlib
 import base64
 import os
+import pandas as pd
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -229,6 +230,7 @@ def init_db():
             roll_no TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             password TEXT NOT NULL,
+            class_name TEXT DEFAULT 'B.Tech CSE',
             section TEXT DEFAULT 'Section AJ',
             status TEXT DEFAULT 'Active',
             id_card_status TEXT DEFAULT 'Not Applied',
@@ -257,6 +259,11 @@ def init_db():
         )
     ''')
     
+    try:
+        cursor.execute("ALTER TABLE students ADD COLUMN class_name TEXT DEFAULT 'B.Tech CSE'")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (
             admin_id TEXT PRIMARY KEY,
@@ -321,6 +328,19 @@ def init_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS timetables (
+            timetable_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_name TEXT,
+            section TEXT,
+            title TEXT,
+            description TEXT,
+            timetable_file BLOB,
+            file_name TEXT,
+            uploaded_by TEXT
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -373,7 +393,6 @@ def main():
     if not st.session_state.logged_in:
         show_landing_page()
     else:
-        # Check if user role is Admin or Faculty from admins table
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
         cursor.execute("SELECT role_type FROM admins WHERE admin_id = ?", (st.session_state.identifier,))
@@ -652,9 +671,12 @@ def show_landing_page():
 def show_student_dashboard():
     conn = sqlite3.connect('dsc_portal.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT photo, id_card_status, attendance FROM students WHERE roll_no = ?", (st.session_state.identifier,))
+    cursor.execute("SELECT photo, id_card_status, attendance, class_name, section FROM students WHERE roll_no = ?", (st.session_state.identifier,))
     res = cursor.fetchone()
     conn.close()
+    
+    st_class = res[3] if res and len(res) > 3 and res[3] else "B.Tech CSE"
+    st_section = res[4] if res and len(res) > 4 and res[4] else "Section AJ"
     
     if res and res[0]:
         st.sidebar.image(res[0], width=100)
@@ -662,13 +684,15 @@ def show_student_dashboard():
         st.sidebar.image("https://img.icons8.com/color/96/student-male.png", width=90)
 
     st.sidebar.markdown(f"### **{st.session_state.username}**")
-    st.sidebar.markdown(f"<p style='color: #d0d7de; font-size: 12px;'>Roll No: {st.session_state.identifier} | Student</p>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<p style='color: #4da6ff; font-size: 12px; margin:0;'><b>Class:</b> {st_class} | {st_section}</p>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"<p style='color: #d0d7de; font-size: 11px;'>Roll No: {st.session_state.identifier}</p>", unsafe_allow_html=True)
     st.sidebar.markdown("---")
     
     selected_lang = st.sidebar.selectbox("🌐 Choose Language", ["English", "Hindi"])
     
     menu = st.sidebar.radio("Navigation", [
         "📌 Main Dashboard", 
+        "📅 Class Time Table",
         "📝 Personal Details & Documents",
         "💳 Fee Dues & Payments",
         "🆔 Apply For ID Card", 
@@ -697,7 +721,7 @@ def show_student_dashboard():
         <div class="dashboard-header-banner">
             <div>
                 <h2 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">Student Dashboard — {st.session_state.username}</h2>
-                <p style="margin: 4px 0 0 0; color: #919eab; font-size: 13px;">University Roll Number: <b style="color: #4da6ff;">{st.session_state.identifier}</b></p>
+                <p style="margin: 4px 0 0 0; color: #919eab; font-size: 13px;">Class: <b style="color: #4da6ff;">{st_class} - {st_section}</b></p>
             </div>
             <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
                 <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: 600;">⏰ {current_time}</p>
@@ -710,7 +734,7 @@ def show_student_dashboard():
         st.markdown(f"""
             <div class="hero-box">
                 <h2>🎓 Welcome, {st.session_state.username}</h2>
-                <p style="color: #c9d1d9; font-size: 14px; margin-top: 5px;">Track your academic assessments, verify documents, and explore learning tools securely on DSC Portal.</p>
+                <p style="color: #c9d1d9; font-size: 14px; margin-top: 5px;">Track your academic assessments, verify documents, and view your class time table securely on DSC Portal.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -745,6 +769,28 @@ def show_student_dashboard():
                     <h2 style="color: white; margin: 0; font-size: 20px;">0.0%</h2>
                 </div>
             """, unsafe_allow_html=True)
+
+    elif menu == "📅 Class Time Table":
+        st.subheader(f"📅 Official Time Table for {st_class} — {st_section}")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT title, description, timetable_file, file_name FROM timetables WHERE section = ? OR section = 'All Sections'", (st_section,))
+        tt_list = cursor.fetchall()
+        conn.close()
+
+        if tt_list:
+            for tt in tt_list:
+                t_title, t_desc, t_file, f_name = tt
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 20px; margin-bottom: 15px;">
+                        <h3 style="color: #4da6ff; margin-top:0;">{t_title}</h3>
+                        <p style="color: #ffffff; white-space: pre-wrap;">{t_desc}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                if t_file:
+                    st.download_button(f"📥 Download Time Table Document ({f_name or 'Document'})", t_file, file_name=f_name or "timetable.pdf")
+        else:
+            st.info(f"No time table has been published yet for {st_section}.")
 
     elif menu == "📝 Personal Details & Documents":
         st.subheader("📝 Student Personal Details & Document Verification Portal")
@@ -1013,10 +1059,12 @@ def show_faculty_dashboard():
     
     staff_menu = st.sidebar.radio("Faculty Panel", [
         "📊 Dashboard",
+        "📅 View Time Table",
         "📋 Attendance Management",
         "📝 Quiz & Test Creator",
         "💰 View Student Fee Status",
         "📂 Student Personal & Docs View",
+        "📈 Student & Faculty Spreadsheets",
         "🆔 ID Card Approvals",
         "✉️ Resign Application",
         "⚙️ Faculty Profile & Photo"
@@ -1052,6 +1100,28 @@ def show_faculty_dashboard():
         total_students = cursor.fetchone()[0]
         conn.close()
         st.metric("Total Portal Students", total_students)
+
+    elif staff_menu == "📅 View Time Table":
+        st.subheader("📅 Published Class Time Tables")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT class_name, section, title, description, timetable_file, file_name FROM timetables")
+        all_tts = cursor.fetchall()
+        conn.close()
+
+        if all_tts:
+            for tt in all_tts:
+                c_name, c_sec, t_title, t_desc, t_file, f_name = tt
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 20px; margin-bottom: 15px;">
+                        <h3 style="color: #4da6ff; margin-top:0;">{t_title} ({c_name} - {c_sec})</h3>
+                        <p style="color: #ffffff; white-space: pre-wrap;">{t_desc}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                if t_file:
+                    st.download_button(f"📥 Download Time Table ({f_name or 'Document'})", t_file, file_name=f_name or "timetable.pdf", key=f"dl_tt_{t_title}_{c_sec}")
+        else:
+            st.info("No time tables uploaded yet.")
 
     elif staff_menu == "📋 Attendance Management":
         st.subheader("📋 Student Attendance Management")
@@ -1113,6 +1183,35 @@ def show_faculty_dashboard():
         conn.close()
         for sd in all_docs:
             st.write(f"• **{sd[1]}** (Roll: `{sd[0]}`) | Father: {sd[2] or 'N/A'} | Mobile: {sd[3] or 'N/A'}")
+
+    elif staff_menu == "📈 Student & Faculty Spreadsheets":
+        st.subheader("📈 Separate Spreadsheets View (Faculty & Students)")
+        
+        tab_f1, tab_f2 = st.tabs(["🎓 Student Spreadsheet", "👨‍🏫 Faculty Spreadsheet"])
+        
+        with tab_f1:
+            st.markdown("### 🎓 Student Records Spreadsheet")
+            conn = sqlite3.connect('dsc_portal.db')
+            df_st = pd.read_sql_query("SELECT roll_no, name, class_name, section, status, attendance, academic_fee, hostel_fee, mess_fee, bus_fee, email, student_mobile FROM students", conn)
+            conn.close()
+            if not df_st.empty:
+                st.dataframe(df_st, use_container_width=True)
+                csv_st = df_st.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download Student Spreadsheet (CSV)", csv_st, "student_records.csv", "text/csv")
+            else:
+                st.info("No student records found.")
+                
+        with tab_f2:
+            st.markdown("### 👨‍🏫 Faculty Records Spreadsheet")
+            conn = sqlite3.connect('dsc_portal.db')
+            df_fa = pd.read_sql_query("SELECT admin_id, title, name, subject, marital_status, email, mobile, role_type, resign_status FROM admins", conn)
+            conn.close()
+            if not df_fa.empty:
+                st.dataframe(df_fa, use_container_width=True)
+                csv_fa = df_fa.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download Faculty Spreadsheet (CSV)", csv_fa, "faculty_records.csv", "text/csv")
+            else:
+                st.info("No faculty records found.")
 
     elif staff_menu == "🆔 ID Card Approvals":
         st.subheader("🆔 Student ID Card Requests — Faculty Approval")
@@ -1199,8 +1298,10 @@ def show_admin_dashboard():
     
     admin_menu = st.sidebar.radio("Admin Panel", [
         "📊 Dashboard & Stats",
+        "📅 Publish Time Table",
         "👨‍🏫 Register & Manage Faculty / Admins",
         "👥 Register & Delete Students",
+        "📈 Student & Faculty Spreadsheets",
         "📋 Attendance Management",
         "📝 Quiz & Test Creator",
         "💰 Manage Student Fees",
@@ -1246,6 +1347,60 @@ def show_admin_dashboard():
         c1, c2 = st.columns(2)
         c1.metric("Total Enrolled Students", tot_students)
         c2.metric("Total Registered Staff / Admins", tot_fac)
+
+    elif admin_menu == "📅 Publish Time Table":
+        st.subheader("📅 Publish Class Time Table")
+        with st.form("publish_timetable_form"):
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                tt_class = st.text_input("Class Name (e.g. B.Tech CSE)", value="B.Tech CSE")
+                tt_section = st.selectbox("Section / Batch", ["Section AJ", "Section AW", "CSE Batch A", "Section B", "All Sections"])
+            with col_t2:
+                tt_title = st.text_input("Time Table Title (e.g. Odd Semester Time Table 2026)")
+            
+            tt_desc = st.text_area("Time Table Schedule Details / Description")
+            tt_file = st.file_uploader("Upload Time Table Document (PDF / Image)", type=["pdf", "jpg", "jpeg", "png"])
+            
+            submit_tt = st.form_submit_button("Publish Time Table for Students & Faculty")
+            if submit_tt:
+                if tt_title.strip():
+                    file_bytes = tt_file.read() if tt_file else None
+                    file_name = tt_file.name if tt_file else None
+                    
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO timetables (class_name, section, title, description, timetable_file, file_name, uploaded_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (tt_class.strip(), tt_section, tt_title.strip(), tt_desc.strip(), file_bytes, file_name, st.session_state.identifier))
+                    conn.commit()
+                    conn.close()
+                    st.success("Time table successfully published! Students and Faculty can now view it on their portals.")
+                    st.rerun()
+                else:
+                    st.error("Please enter a Time Table Title.")
+
+        st.markdown("### 📋 Manage & Delete Published Time Tables")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT timetable_id, class_name, section, title FROM timetables")
+        all_pub_tts = cursor.fetchall()
+        conn.close()
+
+        if all_pub_tts:
+            for pt in all_pub_tts:
+                t_id, c_name, c_sec, t_title = pt
+                with st.expander(f"📅 {t_title} — Class: {c_name} | {c_sec}"):
+                    if st.button(f"🗑️ Delete Time Table #{t_id}", key=f"del_tt_{t_id}"):
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM timetables WHERE timetable_id = ?", (t_id,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Time table deleted successfully.")
+                        st.rerun()
+        else:
+            st.info("No time tables published yet.")
 
     elif admin_menu == "👨‍🏫 Register & Manage Faculty / Admins":
         st.subheader("👨‍🏫 Register New Faculty / Co-Admin")
@@ -1331,10 +1486,15 @@ def show_admin_dashboard():
     elif admin_menu == "👥 Register & Delete Students":
         st.subheader("➕ Register New Student & Account Deletion")
         with st.form("add_student_form"):
-            new_name = st.text_input("Student Full Name")
-            new_roll = st.text_input("Student Roll Number")
-            new_pass = st.text_input("Assign Password", type="password")
-            student_section = st.selectbox("Assign University Section / Batch", ["Section AJ", "Section AW", "CSE Batch A", "Section B"])
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                new_name = st.text_input("Student Full Name")
+                new_roll = st.text_input("Student Roll Number")
+                new_pass = st.text_input("Assign Password", type="password")
+            with col_s2:
+                student_class = st.text_input("Class Name (e.g. B.Tech CSE, BCA)", value="B.Tech CSE")
+                student_section = st.selectbox("Assign University Section / Batch", ["Section AJ", "Section AW", "CSE Batch A", "Section B"])
+            
             student_photo = st.file_uploader("Upload Student Photo", type=["jpg", "png", "jpeg"])
             
             submit_student = st.form_submit_button("Register Student in Database")
@@ -1346,12 +1506,12 @@ def show_admin_dashboard():
                         cursor = conn.cursor()
                         hashed_password = hash_password(new_pass.strip())
                         cursor.execute("""
-                            INSERT INTO students (roll_no, name, password, section, status, id_card_status, photo, photo_status) 
-                            VALUES (?, ?, ?, ?, ?, 'Not Applied', ?, 'Approved')
-                        """, (new_roll.strip(), new_name.strip(), hashed_password, student_section, photo_bytes))
+                            INSERT INTO students (roll_no, name, password, class_name, section, status, id_card_status, photo, photo_status) 
+                            VALUES (?, ?, ?, ?, ?, 'Active', 'Not Applied', ?, 'Approved')
+                        """, (new_roll.strip(), new_name.strip(), hashed_password, student_class.strip(), student_section, photo_bytes))
                         conn.commit()
                         conn.close()
-                        st.success(f"Student '{new_name}' (Roll No: {new_roll}) successfully registered!")
+                        st.success(f"Student '{new_name}' (Roll No: {new_roll}) successfully registered in {student_class} - {student_section}!")
                         st.rerun()
                     except sqlite3.IntegrityError:
                         st.error("Error: This Roll Number is already registered!")
@@ -1361,14 +1521,14 @@ def show_admin_dashboard():
         st.markdown("### 🛡️ Manage & Delete Students")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT roll_no, name, section, status FROM students")
+        cursor.execute("SELECT roll_no, name, class_name, section, status FROM students")
         all_students = cursor.fetchall()
         conn.close()
 
         if all_students:
             for st_rec in all_students:
-                r_no, s_name, s_sec, s_status = st_rec
-                with st.expander(f"👤 {s_name} (Roll No: {r_no}) — Section: {s_sec} [Status: {s_status}]"):
+                r_no, s_name, s_class, s_sec, s_status = st_rec
+                with st.expander(f"👤 {s_name} (Roll No: {r_no}) — Class: {s_class} | {s_sec} [Status: {s_status}]"):
                     col_p1, col_p2 = st.columns(2)
                     with col_p1:
                         if s_status == 'Active':
@@ -1399,19 +1559,48 @@ def show_admin_dashboard():
                             st.success("Student deleted.")
                             st.rerun()
 
+    elif admin_menu == "📈 Student & Faculty Spreadsheets":
+        st.subheader("📈 Master Spreadsheets View (Separate Student & Faculty Tables)")
+        
+        tab1, tab2 = st.tabs(["🎓 Students Spreadsheet", "👨‍🏫 Faculty / Staff Spreadsheet"])
+        
+        with tab1:
+            st.markdown("### 🎓 Complete Students Spreadsheet")
+            conn = sqlite3.connect('dsc_portal.db')
+            df_students = pd.read_sql_query("SELECT roll_no, name, class_name, section, status, attendance, academic_fee, hostel_fee, mess_fee, bus_fee, email, student_mobile FROM students", conn)
+            conn.close()
+            if not df_students.empty:
+                st.dataframe(df_students, use_container_width=True)
+                csv_s = df_students.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download Students Spreadsheet (CSV)", csv_s, "students_spreadsheet.csv", "text/csv")
+            else:
+                st.info("No student records available.")
+                
+        with tab2:
+            st.markdown("### 👨‍🏫 Complete Faculty & Staff Spreadsheet")
+            conn = sqlite3.connect('dsc_portal.db')
+            df_faculty = pd.read_sql_query("SELECT admin_id, title, name, subject, marital_status, email, mobile, role_type, resign_status FROM admins", conn)
+            conn.close()
+            if not df_faculty.empty:
+                st.dataframe(df_faculty, use_container_width=True)
+                csv_f = df_faculty.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download Faculty Spreadsheet (CSV)", csv_f, "faculty_spreadsheet.csv", "text/csv")
+            else:
+                st.info("No faculty records available.")
+
     elif admin_menu == "📋 Attendance Management":
         st.subheader("📋 Student Attendance Management")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT roll_no, name, section, attendance FROM students")
+        cursor.execute("SELECT roll_no, name, class_name, section, attendance FROM students")
         att_students = cursor.fetchall()
         conn.close()
 
         if att_students:
             for ast in att_students:
-                r_no, name, sec, cur_att = ast
+                r_no, name, c_name, sec, cur_att = ast
                 with st.form(f"adm_att_form_{r_no}"):
-                    st.write(f"**{name}** (Roll No: `{r_no}`)")
+                    st.write(f"**{name}** (Roll No: `{r_no}`) — {c_name} | {sec}")
                     new_att = st.number_input("Attendance %", value=float(cur_att if cur_att is not None else 100.0), min_value=0.0, max_value=100.0, step=0.5, key=f"adm_att_{r_no}")
                     if st.form_submit_button("Update Attendance"):
                         conn = sqlite3.connect('dsc_portal.db')
@@ -1440,13 +1629,13 @@ def show_admin_dashboard():
         st.subheader("💰 Manage Student Fees")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT roll_no, name, section, academic_fee, hostel_fee, mess_fee, bus_fee FROM students")
+        cursor.execute("SELECT roll_no, name, class_name, section, academic_fee, hostel_fee, mess_fee, bus_fee FROM students")
         fee_students = cursor.fetchall()
         conn.close()
 
         for fs in fee_students:
-            r_no, name, sec, acad, hostel, mess, bus = fs
-            with st.expander(f"💵 {name} (Roll: {r_no})"):
+            r_no, name, c_name, sec, acad, hostel, mess, bus = fs
+            with st.expander(f"💵 {name} (Roll: {r_no}) — {c_name} | {sec}"):
                 with st.form(f"adm_fee_{r_no}"):
                     na = st.number_input("Academic Fee", value=float(acad or 0), step=1000.0, key=f"af_a_{r_no}")
                     nh = st.number_input("Hostel Fee", value=float(hostel or 0), step=1000.0, key=f"af_h_{r_no}")
@@ -1465,11 +1654,11 @@ def show_admin_dashboard():
         st.subheader("📊 Section-Wise Detailed Student Records")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT roll_no, name, section, status FROM students")
+        cursor.execute("SELECT roll_no, name, class_name, section, status FROM students")
         recs = cursor.fetchall()
         conn.close()
         for r in recs:
-            st.write(f"• **{r[1]}** (Roll: `{r[0]}`) — Section: `{r[2]}`")
+            st.write(f"• **{r[1]}** (Roll: `{r[0]}`) — Class: {r[2]} | Section: `{r[3]}`")
 
     elif admin_menu == "📂 Student Personal & Docs Approval":
         st.subheader("📂 Student Photo Approvals")

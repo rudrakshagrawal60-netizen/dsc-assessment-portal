@@ -307,7 +307,6 @@ def init_db():
         except sqlite3.OperationalError:
             pass
 
-    # Ensure Master Admin is seeded with ID 12515001362 and password 29122007 with Admin role
     master_id = "12515001362"
     master_pass = hash_password("29122007")
     cursor.execute("SELECT admin_id FROM admins WHERE admin_id = ?", (master_id,))
@@ -1025,8 +1024,57 @@ def show_student_dashboard():
             st.success("Score: 92/100")
 
     elif menu == "😀 Face Registration":
-        st.subheader("👤 AI Proctoring Face Recognition")
-        st.success("Face biometrics verified successfully.")
+        st.subheader("👤 AI Proctoring Face Registration & Biometrics")
+        
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT photo, pending_photo, photo_status FROM students WHERE roll_no = ?", (st.session_state.identifier,))
+        face_rec = cursor.fetchone()
+        conn.close()
+        
+        cur_photo = face_rec[0] if face_rec else None
+        pend_photo = face_rec[1] if face_rec and len(face_rec) > 1 else None
+        p_status = face_rec[2] if face_rec and len(face_rec) > 2 else "Approved"
+
+        if cur_photo and not pend_photo:
+            st.success("✅ Your Face Biometrics is already registered and locked!")
+            st.image(cur_photo, width=180, caption="Registered Face")
+            st.info("💡 To change your registered photo, please submit a request below. It will require Admin approval.")
+            
+            with st.form("request_face_change"):
+                new_cam_photo = st.camera_input("Capture New Face Photo for Admin Review")
+                if st.form_submit_button("Request Photo Change"):
+                    if new_cam_photo:
+                        cam_bytes = new_cam_photo.read()
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE students SET pending_photo = ?, photo_status = 'Pending Approval' WHERE roll_no = ?", (cam_bytes, st.session_state.identifier))
+                        conn.commit()
+                        conn.close()
+                        st.success("New face photo submitted for Admin approval!")
+                        st.rerun()
+        elif pend_photo or p_status == "Pending Approval":
+            st.warning("⚠️ Your face photo change request is currently **Pending Admin Approval**.")
+            if pend_photo:
+                st.image(pend_photo, width=180, caption="Pending Approval Photo")
+        else:
+            st.info("📷 Please capture your face using your camera for one-time biometric registration.")
+            with st.form("initial_face_reg_form"):
+                captured_img = st.camera_input("Click 'Allow' / Grant Camera Access to Capture Face")
+                submit_face = st.form_submit_button("Upload & Lock Face Biometrics")
+                
+                if submit_face:
+                    if captured_img:
+                        img_bytes = captured_img.read()
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE students SET photo = ?, photo_status = 'Approved' WHERE roll_no = ?", (img_bytes, st.session_state.identifier))
+                        conn.commit()
+                        conn.close()
+                        st.success("🎉 Face biometrics registered and locked successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Please capture your photo using the camera first.")
 
     elif menu == "❓ Help Desk":
         st.subheader("🛠️ Technical Help Desk & Support")
@@ -1306,7 +1354,7 @@ def show_admin_dashboard():
         "📝 Quiz & Test Creator",
         "💰 Manage Student Fees",
         "📊 Section-wise Records",
-        "📂 Student Personal & Docs Approval",
+        "📂 Student Face & Docs Approval",
         "🆔 ID Card Approvals (Admin)",
         "👤 Faculty Photo & Resign Approvals",
         "⚙️ Admin Profile"
@@ -1660,8 +1708,8 @@ def show_admin_dashboard():
         for r in recs:
             st.write(f"• **{r[1]}** (Roll: `{r[0]}`) — Class: {r[2]} | Section: `{r[3]}`")
 
-    elif admin_menu == "📂 Student Personal & Docs Approval":
-        st.subheader("📂 Student Photo Approvals")
+    elif admin_menu == "📂 Student Face & Docs Approval":
+        st.subheader("📂 Student Face Photo Change Approvals")
         conn = sqlite3.connect('dsc_portal.db')
         cursor = conn.cursor()
         cursor.execute("SELECT roll_no, name, pending_photo FROM students WHERE photo_status = 'Pending Approval'")
@@ -1674,25 +1722,25 @@ def show_admin_dashboard():
                 c1, c2, c3 = st.columns([2, 1, 1])
                 c1.write(f"**{name}** (Roll: {r_no})")
                 if p_bytes:
-                    c1.image(p_bytes, width=100)
+                    c1.image(p_bytes, width=120, caption="Requested New Face")
                 if c2.button(f"Approve {r_no}", key=f"adm_app_ph_{r_no}"):
                     conn = sqlite3.connect('dsc_portal.db')
                     cursor = conn.cursor()
                     cursor.execute("UPDATE students SET photo = pending_photo, pending_photo = NULL, photo_status = 'Approved' WHERE roll_no = ?", (r_no,))
                     conn.commit()
                     conn.close()
-                    st.success("Approved!")
+                    st.success("Face photo change approved!")
                     st.rerun()
                 if c3.button(f"Reject {r_no}", key=f"adm_rej_ph_{r_no}"):
                     conn = sqlite3.connect('dsc_portal.db')
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE students SET pending_photo = NULL, photo_status = 'Rejected' WHERE roll_no = ?", (r_no,))
+                    cursor.execute("UPDATE students SET pending_photo = NULL, photo_status = 'Approved' WHERE roll_no = ?", (r_no,))
                     conn.commit()
                     conn.close()
-                    st.warning("Rejected.")
+                    st.warning("Face photo change rejected.")
                     st.rerun()
         else:
-            st.info("No pending student photo approvals.")
+            st.info("No pending face photo change requests.")
 
     elif admin_menu == "🆔 ID Card Approvals (Admin)":
         st.subheader("🆔 Student ID Card Requests — Final Admin Approval")

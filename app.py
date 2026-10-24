@@ -352,6 +352,36 @@ def init_db():
             timestamp TEXT
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS student_leaves (
+            leave_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            roll_no TEXT,
+            name TEXT,
+            section TEXT,
+            leave_type TEXT,
+            num_days INTEGER,
+            num_classes INTEGER,
+            reason TEXT,
+            faculty_status TEXT DEFAULT 'Pending',
+            admin_status TEXT DEFAULT 'Pending',
+            final_status TEXT DEFAULT 'Pending',
+            timestamp TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS faculty_leaves (
+            f_leave_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id TEXT,
+            name TEXT,
+            leave_type TEXT,
+            num_days INTEGER,
+            reason TEXT,
+            admin_approval TEXT DEFAULT 'Pending',
+            salary_deduction TEXT DEFAULT 'Applicable'
+        )
+    ''')
     
     conn.commit()
     conn.close()
@@ -708,6 +738,7 @@ def show_student_dashboard():
         "📝 Personal Details & Documents",
         "💳 Fee Dues & Payments",
         "🆔 Apply For ID Card", 
+        "🏖️ Leave Application",
         "📚 Academic Examinations", 
         "🎯 Practice Dashboard", 
         "🎙️ AI Interview", 
@@ -1006,6 +1037,56 @@ def show_student_dashboard():
         elif current_id_status == "Approved":
             st.success("🎉 Your ID Card has been APPROVED!")
 
+    elif menu == "🏖️ Leave Application":
+        st.subheader("🏖️ Student Leave Application Portal")
+        
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT leave_type, num_days, num_classes, faculty_status, admin_status, final_status, timestamp FROM student_leaves WHERE roll_no = ?", (st.session_state.identifier,))
+        user_leaves = cursor.fetchall()
+        conn.close()
+
+        if user_leaves:
+            st.markdown("### 📋 Your Leave Requests Status:")
+            for ul in user_leaves:
+                l_type, n_days, n_cls, f_stat, a_stat, fin_stat, ts = ul
+                badge_color = "#00e676" if fin_stat == "Approved" else ("#ff4d4d" if fin_stat == "Rejected" else "#ffc107")
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 15px; margin-bottom: 10px;">
+                        <h4 style="color: #4da6ff; margin:0;">Type: {l_type} ({n_days} Days | {n_cls} Classes)</h4>
+                        <p style="margin: 5px 0; color: #ffffff;">Faculty Approval: <b>{f_stat}</b> | Admin Approval: <b>{a_stat}</b></p>
+                        <p style="margin: 0; color: {badge_color}; font-weight: bold;">Final Status: {fin_stat} (Applied on: {ts})</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            st.markdown("---")
+
+        with st.form("student_leave_form"):
+            leave_type = st.selectbox("Select Leave Type", ["Medical Leave", "Event Leave", "Drive Leave", "Personal Leave"])
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                num_days = st.number_input("Number of Days", min_value=1, max_value=30, value=1)
+            with col_l2:
+                num_classes = st.number_input("Number of Classes Affected on that Day", min_value=1, max_value=10, value=4)
+            
+            reason = st.text_area("Reason for Leave")
+            submit_leave = st.form_submit_button("Submit Leave Application (Requires Faculty & Admin Approval)")
+            
+            if submit_leave:
+                if reason.strip():
+                    ts_str = datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO student_leaves (roll_no, name, section, leave_type, num_days, num_classes, reason, faculty_status, admin_status, final_status, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', 'Pending', 'Pending', ?)
+                    """, (st.session_state.identifier, st.session_state.username, st_section, leave_type, num_days, num_classes, reason.strip(), ts_str))
+                    conn.commit()
+                    conn.close()
+                    st.success("Leave application submitted successfully! Pending approvals.")
+                    st.rerun()
+                else:
+                    st.error("Please enter a reason for leave.")
+
     elif menu == "📚 Academic Examinations":
         st.subheader("📚 Academic Examinations & Quizzes")
         st.info("No active examinations are currently live.")
@@ -1050,7 +1131,6 @@ def show_student_dashboard():
                 
                 if submit_interview:
                     if cam_check and ans1.strip() and ans2.strip() and ans3.strip():
-                        # Evaluate score based on length/completeness simulation
                         base_score = random.uniform(82.0, 98.5)
                         feedback_text = "Excellent conceptual clarity in OOP and database management. Communication skills and technical articulation are top tier."
                         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p")
@@ -1171,6 +1251,8 @@ def show_faculty_dashboard():
     staff_menu = st.sidebar.radio("Faculty Panel", [
         "📊 Dashboard",
         "📅 View Time Table",
+        "🏖️ Student Leave Approvals",
+        "🏖️ Faculty Leave Request",
         "🎙️ AI Interview Reports",
         "📋 Attendance Management",
         "📝 Quiz & Test Creator",
@@ -1234,6 +1316,88 @@ def show_faculty_dashboard():
                     st.download_button(f"📥 Download Time Table ({f_name or 'Document'})", t_file, file_name=f_name or "timetable.pdf", key=f"dl_tt_{t_title}_{c_sec}")
         else:
             st.info("No time tables uploaded yet.")
+
+    elif staff_menu == "🏖️ Student Leave Approvals":
+        st.subheader("🏖️ Student Leave Requests — Faculty Review")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT leave_id, roll_no, name, leave_type, num_days, num_classes, reason, faculty_status, admin_status FROM student_leaves WHERE faculty_status = 'Pending'")
+        pending_student_leaves = cursor.fetchall()
+        conn.close()
+
+        if pending_student_leaves:
+            for psl in pending_student_leaves:
+                l_id, r_no, s_name, l_type, n_days, n_cls, rsn, f_st, a_st = psl
+                with st.container():
+                    st.markdown(f"""
+                        <div class="dash-card" style="padding: 15px;">
+                            <h4 style="color: #4da6ff; margin:0;">{s_name} (Roll: {r_no}) — Type: {l_type}</h4>
+                            <p style="color: #ffffff; margin: 5px 0;">Duration: <b>{n_days} Days</b> | Affected Classes: <b>{n_cls} NA</b> | Reason: {rsn}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    c_app, c_rej = st.columns(2)
+                    if c_app.button(f"Approve Leave #{l_id}", key=f"fac_app_{l_id}"):
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE student_leaves SET faculty_status = 'Approved' WHERE leave_id = ?", (l_id,))
+                        cursor.execute("SELECT admin_status FROM student_leaves WHERE leave_id = ?", (l_id,))
+                        a_curr = cursor.fetchone()[0]
+                        if a_curr == 'Approved':
+                            cursor.execute("UPDATE student_leaves SET final_status = 'Approved' WHERE leave_id = ?", (l_id,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Leave approved by Faculty!")
+                        st.rerun()
+                    if c_rej.button(f"Reject Leave #{l_id}", key=f"fac_rej_{l_id}"):
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE student_leaves SET faculty_status = 'Rejected', final_status = 'Rejected' WHERE leave_id = ?", (l_id,))
+                        conn.commit()
+                        conn.close()
+                        st.warning("Leave rejected.")
+                        st.rerun()
+        else:
+            st.info("No pending student leave requests.")
+
+    elif staff_menu == "🏖️ Faculty Leave Request":
+        st.subheader("🏖️ Faculty Leave Application & Salary Protection")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT leave_type, num_days, reason, admin_approval, salary_deduction FROM faculty_leaves WHERE admin_id = ?", (st.session_state.identifier,))
+        my_flex_leaves = cursor.fetchall()
+        conn.close()
+
+        if my_flex_leaves:
+            st.markdown("### 📋 Your Leave Requests Status:")
+            for mfl in my_flex_leaves:
+                l_type, n_days, rsn, ad_app, sal_ded = mfl
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 15px; margin-bottom: 10px;">
+                        <h4 style="color: #4da6ff; margin:0;">{l_type} ({n_days} Days)</h4>
+                        <p style="color: #ffffff; margin: 5px 0;">Admin Approval: <b>{ad_app}</b> | Salary Deduction: <b>{sal_ded}</b></p>
+                    </div>
+                """, unsafe_allow_html=True)
+            st.markdown("---")
+
+        with st.form("faculty_leave_apply_form"):
+            f_leave_type = st.selectbox("Select Leave Type", ["Medical Leave", "Casual Leave", "Earned Leave", "Conference Leave"])
+            f_num_days = st.number_input("Number of Days", min_value=1, max_value=60, value=2)
+            f_reason = st.text_area("Reason for Leave")
+            
+            if st.form_submit_button("Submit Leave Request to Admin"):
+                if f_reason.strip():
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO faculty_leaves (admin_id, name, leave_type, num_days, reason, admin_approval, salary_deduction)
+                        VALUES (?, ?, ?, ?, ?, 'Pending', 'Applicable')
+                    """, (st.session_state.identifier, fac_name, f_leave_type, f_num_days, f_reason.strip()))
+                    conn.commit()
+                    conn.close()
+                    st.success("Faculty leave request submitted to Admin successfully!")
+                    st.rerun()
+                else:
+                    st.error("Please enter a reason.")
 
     elif staff_menu == "🎙️ AI Interview Reports":
         st.subheader("🎙️ AI Interview Evaluation Reports")
@@ -1424,6 +1588,8 @@ def show_admin_dashboard():
     admin_menu = st.sidebar.radio("Admin Panel", [
         "📊 Dashboard & Stats",
         "📅 Publish Time Table",
+        "🏖️ Student Leave Approvals (Admin)",
+        "🏖️ Faculty Leave Approvals (Admin)",
         "🎙️ AI Interview Reports",
         "👨‍🏫 Register & Manage Faculty / Admins",
         "👥 Register & Delete Students",
@@ -1527,6 +1693,85 @@ def show_admin_dashboard():
                         st.rerun()
         else:
             st.info("No time tables published yet.")
+
+    elif admin_menu == "🏖️ Student Leave Approvals (Admin)":
+        st.subheader("🏖️ Student Leave Requests — Admin Final Approval")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT leave_id, roll_no, name, leave_type, num_days, num_classes, reason, faculty_status, admin_status FROM student_leaves WHERE admin_status = 'Pending'")
+        adm_pend_leaves = cursor.fetchall()
+        conn.close()
+
+        if adm_pend_leaves:
+            for apl in adm_pend_leaves:
+                l_id, r_no, s_name, l_type, n_days, n_cls, rsn, f_st, a_st = apl
+                with st.container():
+                    st.markdown(f"""
+                        <div class="dash-card" style="padding: 15px;">
+                            <h4 style="color: #4da6ff; margin:0;">{s_name} (Roll: {r_no}) — Type: {l_type}</h4>
+                            <p style="color: #ffffff; margin: 5px 0;">Duration: <b>{n_days} Days</b> | Affected Classes: <b>{n_cls} NA</b> | Faculty Status: <b>{f_st}</b></p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    c_app, c_rej = st.columns(2)
+                    if c_app.button(f"Final Approve Leave #{l_id}", key=f"adm_app_l_{l_id}"):
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE student_leaves SET admin_status = 'Approved' WHERE leave_id = ?", (l_id,))
+                        cursor.execute("SELECT faculty_status FROM student_leaves WHERE leave_id = ?", (l_id,))
+                        f_curr = cursor.fetchone()[0]
+                        if f_curr == 'Approved':
+                            cursor.execute("UPDATE student_leaves SET final_status = 'Approved' WHERE leave_id = ?", (l_id,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Leave approved by Admin! If faculty also approved, classes are now marked NA.")
+                        st.rerun()
+                    if c_rej.button(f"Reject Leave #{l_id}", key=f"adm_rej_l_{l_id}"):
+                        conn = sqlite3.connect('dsc_portal.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE student_leaves SET admin_status = 'Rejected', final_status = 'Rejected' WHERE leave_id = ?", (l_id,))
+                        conn.commit()
+                        conn.close()
+                        st.warning("Leave rejected.")
+                        st.rerun()
+        else:
+            st.info("No pending student leave requests for Admin.")
+
+    elif admin_menu == "🏖️ Faculty Leave Approvals (Admin)":
+        st.subheader("🏖️ Faculty Leave Requests — Admin Approval & Salary Protection")
+        conn = sqlite3.connect('dsc_portal.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT f_leave_id, name, leave_type, num_days, reason, admin_approval FROM faculty_leaves WHERE admin_approval = 'Pending'")
+        fac_leaves_adm = cursor.fetchall()
+        conn.close()
+
+        if fac_leaves_adm:
+            for fla in fac_leaves_adm:
+                fl_id, f_name, l_type, n_days, rsn, ad_app = fla
+                st.markdown(f"""
+                    <div class="dash-card" style="padding: 15px;">
+                        <h4 style="color: #4da6ff; margin:0;">Faculty: {f_name} — Type: {l_type} ({n_days} Days)</h4>
+                        <p style="color: #ffffff; margin: 5px 0;">Reason: {rsn}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                c1, c2 = st.columns(2)
+                if c1.button(f"Approve & Protect Salary #{fl_id}", key=f"adm_app_fl_{fl_id}"):
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE faculty_leaves SET admin_approval = 'Approved', salary_deduction = 'Waived (No Deduction)' WHERE f_leave_id = ?", (fl_id,))
+                    conn.commit()
+                    conn.close()
+                    st.success("Faculty leave approved! Salary deduction has been waived.")
+                    st.rerun()
+                if c2.button(f"Reject Faculty Leave #{fl_id}", key=f"adm_rej_fl_{fl_id}"):
+                    conn = sqlite3.connect('dsc_portal.db')
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE faculty_leaves SET admin_approval = 'Rejected', salary_deduction = 'Applicable' WHERE f_leave_id = ?", (fl_id,))
+                    conn.commit()
+                    conn.close()
+                    st.warning("Faculty leave rejected.")
+                    st.rerun()
+        else:
+            st.info("No pending faculty leave requests.")
 
     elif admin_menu == "🎙️ AI Interview Reports":
         st.subheader("🎙️ Student AI Interview Reports & Scores")
